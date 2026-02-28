@@ -2,7 +2,11 @@
 FROM swift:6.0-jammy AS builder
 
 WORKDIR /app
-COPY Package.swift .
+
+# Copy Package manifest
+COPY Package.swift Package.resolved ./
+
+# Copy source directories needed for server build
 COPY VillageSimulation/ VillageSimulation/
 COPY VillageServer/ VillageServer/
 
