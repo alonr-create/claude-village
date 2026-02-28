@@ -125,12 +125,41 @@ class HouseNode: SKNode {
         nameLabel.zPosition = 3
         addChild(nameLabel)
 
-        // Emoji badge
-        let emojiLabel = SKLabelNode(text: project.emoji)
-        emojiLabel.fontSize = 20
-        emojiLabel.position = CGPoint(x: 0, y: houseHeight / 2 + roofHeight + 10)
-        emojiLabel.zPosition = 3
-        addChild(emojiLabel)
+        // Project logo (loaded from Resources/logos/)
+        let logoSize: CGFloat = 36
+        let logoY = houseHeight / 2 + roofHeight + logoSize / 2 + 4
+        if let logoTexture = loadLogoTexture(project.logoFile) {
+            // White circle background behind logo
+            let bgCircle = SKShapeNode(circleOfRadius: logoSize / 2 + 2)
+            bgCircle.fillColor = .white
+            bgCircle.strokeColor = project.roofColor
+            bgCircle.lineWidth = 2.5
+            bgCircle.position = CGPoint(x: 0, y: logoY)
+            bgCircle.zPosition = 4
+            addChild(bgCircle)
+
+            // Logo sprite (circular crop)
+            let logoSprite = SKSpriteNode(texture: logoTexture, size: CGSize(width: logoSize, height: logoSize))
+            logoSprite.position = .zero  // relative to cropNode
+
+            let mask = SKShapeNode(circleOfRadius: logoSize / 2)
+            mask.fillColor = .white
+            mask.strokeColor = .clear
+
+            let cropNode = SKCropNode()
+            cropNode.maskNode = mask
+            cropNode.addChild(logoSprite)
+            cropNode.position = CGPoint(x: 0, y: logoY)
+            cropNode.zPosition = 5
+            addChild(cropNode)
+        } else {
+            // Fallback to emoji if logo not found
+            let emojiLabel = SKLabelNode(text: project.emoji)
+            emojiLabel.fontSize = 20
+            emojiLabel.position = CGPoint(x: 0, y: logoY)
+            emojiLabel.zPosition = 3
+            addChild(emojiLabel)
+        }
 
         // Activity glow (hidden by default)
         let glow = SKShapeNode(rectOf: CGSize(width: houseWidth + 20, height: houseHeight + roofHeight + 20), cornerRadius: 10)
@@ -214,5 +243,25 @@ class HouseNode: SKNode {
         chimneySmoke?.removeAllActions()
         chimneySmoke?.removeFromParent()
         chimneySmoke = nil
+    }
+
+    // MARK: - Logo Loading
+
+    private func loadLogoTexture(_ filename: String) -> SKTexture? {
+        // Try bundle Resources/logos/ first
+        if let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("logos/\(filename)"),
+           FileManager.default.fileExists(atPath: bundleURL.path),
+           let image = NSImage(contentsOf: bundleURL) {
+            return SKTexture(image: image)
+        }
+
+        // Fallback: dev source tree
+        let devPath = NSString(string: "~/קלוד עבודות/claude-village/ClaudeVillage/Resources/logos/\(filename)").expandingTildeInPath
+        if let image = NSImage(contentsOfFile: devPath) {
+            return SKTexture(image: image)
+        }
+
+        print("⚠️ Logo not found: \(filename)")
+        return nil
     }
 }

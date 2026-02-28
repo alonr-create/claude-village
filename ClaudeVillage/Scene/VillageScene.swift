@@ -351,7 +351,28 @@ class VillageScene: SKScene {
 
     // MARK: - Mouse Events
 
+    private var isDragging = false
+    private var dragStartLocation: CGPoint = .zero
+
     override func mouseDown(with event: NSEvent) {
+        isDragging = false
+        dragStartLocation = event.location(in: self)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        isDragging = true
+        // Move camera by the delta (inverted because moving camera = moving world opposite)
+        let dx = event.deltaX
+        let dy = event.deltaY
+        let currentScale = villageCamera.xScale
+        villageCamera.position.x -= dx * currentScale
+        villageCamera.position.y += dy * currentScale  // SpriteKit Y is inverted vs screen
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        // Only handle click if we didn't drag
+        if isDragging { return }
+
         let location = event.location(in: self)
 
         // Check if clicked on a crab

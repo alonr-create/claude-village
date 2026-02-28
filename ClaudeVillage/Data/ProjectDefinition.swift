@@ -20,6 +20,7 @@ struct ProjectDefinition {
     let techStack: String
     let liveURL: String?
     let emoji: String
+    let logoFile: String  // filename in Resources/logos/
 
     var folderPath: String {
         let base = NSHomeDirectory() + "/קלוד עבודות/"
@@ -37,7 +38,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 0.94, green: 0.75, blue: 0.25, alpha: 1), // #F0C040
             techStack: "HTML/CSS/JS, Vercel",
             liveURL: "https://wealthy-mindset.vercel.app",
-            emoji: "🧭"
+            emoji: "🧭",
+            logoFile: "matzpen.png"
         ),
         ProjectDefinition(
             id: .dekelLeprisha,
@@ -49,7 +51,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 0.36, green: 0.77, blue: 0.94, alpha: 1), // #5bc4f0
             techStack: "HTML/CSS/JS, Python, Monday.com",
             liveURL: nil,
-            emoji: "🌴"
+            emoji: "🌴",
+            logoFile: "dekel.png"
         ),
         ProjectDefinition(
             id: .alonDev,
@@ -61,7 +64,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 0.02, green: 0.71, blue: 0.83, alpha: 1), // #06B6D4
             techStack: "HTML/CSS/JS, Vercel, Serverless",
             liveURL: "https://alon-dev.vercel.app",
-            emoji: "💻"
+            emoji: "💻",
+            logoFile: "alon-dev.jpeg"
         ),
         ProjectDefinition(
             id: .alizaHamefarsement,
@@ -73,7 +77,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 1.0, green: 0.40, blue: 0.40, alpha: 1), // #ff6666
             techStack: "Node.js, Express, SQLite, Docker",
             liveURL: "https://aliza-web-production.up.railway.app",
-            emoji: "📣"
+            emoji: "📣",
+            logoFile: "aliza.png"
         ),
         ProjectDefinition(
             id: .hodaatBoker,
@@ -85,7 +90,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 0.20, green: 0.83, blue: 0.60, alpha: 1),
             techStack: "Python, Telegram Bot",
             liveURL: nil,
-            emoji: "🌅"
+            emoji: "🌅",
+            logoFile: "boker.png"
         ),
         ProjectDefinition(
             id: .appGames,
@@ -97,7 +103,8 @@ struct ProjectDefinition {
             accentColor: NSColor(red: 1.0, green: 0.75, blue: 0.20, alpha: 1),
             techStack: "Capacitor, iOS, Swift",
             liveURL: nil,
-            emoji: "🎮"
+            emoji: "🎮",
+            logoFile: "games.png"
         ),
     ]
 
