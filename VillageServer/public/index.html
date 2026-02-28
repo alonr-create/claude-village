@@ -270,81 +270,39 @@ function initAudio() {
     updateCrickets();
 }
 
-// --- Ambient Village Pad ---
-// Gentle harmonic pad using multiple quiet oscillators with slow LFOs
-// Sounds like a warm, peaceful meadow hum
-let ambientOscs = [];
+// --- Ambient Village Music (MP3 loop) ---
+let ambientAudio = null;
 
 function startBrookSound() {
-    if (!audioCtx || brookNode) return;
+    if (brookNode) return;
 
-    // Create a gentle harmonic pad with 4 detuned sine waves
-    const baseFreqs = [130.8, 196.0, 261.6, 392.0]; // C3, G3, C4, G4 — open fifths
-    const padGain = audioCtx.createGain();
-    padGain.gain.value = 0.025; // Very quiet
-    padGain.connect(ambientGain);
+    // Play real ambient music file in a loop
+    ambientAudio = new Audio('village-ambient.mp3');
+    ambientAudio.loop = true;
+    ambientAudio.volume = 0.35; // Gentle background level
+    ambientAudio.play().catch(() => {});
 
-    for (let i = 0; i < baseFreqs.length; i++) {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = baseFreqs[i];
-
-        // Slow detune LFO for warmth
-        const lfo = audioCtx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.value = 0.05 + i * 0.02; // Very slow drift
-        const lfoGain = audioCtx.createGain();
-        lfoGain.gain.value = baseFreqs[i] * 0.003; // Tiny detune
-        lfo.connect(lfoGain);
-        lfoGain.connect(osc.frequency);
-        lfo.start();
-
-        // Individual volume LFO for breathing effect
-        const volLfo = audioCtx.createOscillator();
-        volLfo.type = 'sine';
-        volLfo.frequency.value = 0.08 + i * 0.03;
-        const volLfoGain = audioCtx.createGain();
-        volLfoGain.gain.value = 0.3;
-        volLfo.connect(volLfoGain);
-
-        const oscGain = audioCtx.createGain();
-        oscGain.gain.value = 0.7;
-        volLfoGain.connect(oscGain.gain);
-
-        osc.connect(oscGain);
-        oscGain.connect(padGain);
-        osc.start();
-        volLfo.start();
-
-        ambientOscs.push({ osc, lfo, volLfo, oscGain });
+    // Also connect through Web Audio for master gain control
+    if (audioCtx) {
+        const source = audioCtx.createMediaElementSource(ambientAudio);
+        source.connect(ambientGain);
+        ambientAudio.volume = 1.0; // Let ambientGain control volume
+        ambientGain.gain.value = 0.35;
+        brookNode = source;
+    } else {
+        brookNode = ambientAudio; // fallback marker
     }
-
-    // Gentle filtered noise layer (wind through trees) — much softer than before
-    const bufferSize = 4096;
-    let lp1 = 0, lp2 = 0, lp3 = 0;
-    brookNode = audioCtx.createScriptProcessor(bufferSize, 0, 1);
-    brookNode.onaudioprocess = function(e) {
-        const output = e.outputBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            const noise = Math.random() * 2 - 1;
-            lp1 = lp1 * 0.99 + noise * 0.01;
-            lp2 = lp2 * 0.98 + lp1 * 0.02;
-            lp3 = lp3 * 0.97 + lp2 * 0.03;
-            output[i] = lp3 * 0.015; // Very quiet wind
-        }
-    };
-    brookNode.connect(ambientGain);
 }
 
 function stopBrookSound() {
-    if (brookNode) {
-        brookNode.disconnect();
-        brookNode = null;
+    if (ambientAudio) {
+        ambientAudio.pause();
+        ambientAudio.currentTime = 0;
     }
-    for (const o of ambientOscs) {
-        try { o.osc.stop(); o.lfo.stop(); o.volLfo.stop(); } catch(e) {}
+    if (brookNode && brookNode.disconnect) {
+        try { brookNode.disconnect(); } catch(e) {}
     }
-    ambientOscs = [];
+    brookNode = null;
 }
 
 // --- Bird Chirps (multi-note) ---
@@ -586,12 +544,15 @@ function toggleSound() {
     if (soundEnabled) {
         audioCtx.resume();
         masterGain.gain.value = 1.0;
+        ambientGain.gain.value = 0.35;
         if (!brookNode) startBrookSound();
+        if (ambientAudio) ambientAudio.play().catch(() => {});
         scheduleBirdChirp();
         updateCrickets();
         btn.textContent = '\u{1F50A}';
     } else {
         masterGain.gain.value = 0;
+        if (ambientAudio) ambientAudio.pause();
         stopBrookSound();
         if (birdTimeout) clearTimeout(birdTimeout);
         if (cricketTimeout) clearTimeout(cricketTimeout);
