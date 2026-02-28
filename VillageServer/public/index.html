@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1a2e1a">
-<title>Claude Village v2.0</title>
+<title>Claude Village v3.0</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #1a2e1a; color: #fff; }
@@ -39,9 +39,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 .agent-info { flex: 1; min-width: 0; }
 .agent-name { font-weight: 600; font-size: 14px; }
 .agent-role { font-size: 11px; opacity: 0.6; }
-.agent-needs { display: flex; gap: 4px; margin-top: 4px; }
-.need-bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); overflow: hidden; }
-.need-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.agent-needs { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.need-row { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.need-icon { width: 14px; text-align: center; flex-shrink: 0; }
+.need-label { width: 42px; opacity: 0.6; flex-shrink: 0; }
+.need-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.need-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+.need-pct { width: 28px; text-align: left; opacity: 0.5; font-size: 9px; flex-shrink: 0; }
 
 /* Food grid */
 .food-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -91,7 +95,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 <div id="status">
     <div>
-        <span class="title">Claude Village</span>
+        <span class="title">Claude Village v3.0</span>
         <span class="conn" id="conn"></span>
     </div>
     <div class="info">
@@ -138,8 +142,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 <script>
 // ============================================================
-// CLAUDE VILLAGE v2.0 — Full Canvas Viewer
-// HTTP Polling + Client-Side Prediction + Procedural Audio
+// CLAUDE VILLAGE v3.0 — Full Canvas Viewer
+// Server-side TTS hash, performance caching, auto-management
 // ============================================================
 
 // ========== CONSTANTS ==========
@@ -206,6 +210,15 @@ let activePanel = null;
 
 // Timing
 let lastFrameTime = performance.now();
+
+// Offscreen caching for static elements
+let groundCache = null;
+let groundCachePeriod = null;
+let housesCache = null;
+let housesCachePeriod = null;
+let housesCacheData = null; // serialized houses data for change detection
+let lastUIUpdate = 0;
+const UI_THROTTLE = 1000; // update panels max once per second
 
 // ========== CANVAS SETUP ==========
 const canvas = document.getElementById('canvas');
@@ -493,26 +506,11 @@ const speechAudioCache = {};  // hash → HTMLAudioElement
 const lastSpokenHash = {};     // agentID → hash of last played speech
 let ttsEnabled = true;         // can be toggled separately
 
-function fnv1aHash(str) {
-    let hash = 2166136261;
-    for (let i = 0; i < str.length; i++) {
-        hash ^= str.charCodeAt(i);
-        hash = Math.imul(hash, 16777619) >>> 0;
-    }
-    return hash.toString(16);
-}
-
-function stripEmoji(text) {
-    // Remove emoji characters (surrogate pairs and common emoji ranges)
-    return text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[\u{200D}\u{20E3}\u{FE0F}]/gu, '').trim();
-}
-
 function playTTS(agent) {
     if (!soundEnabled || !ttsEnabled || !agent.currentSpeech) return;
-    const cleanText = stripEmoji(agent.currentSpeech);
-    if (!cleanText || cleanText.length < 2) return;
-
-    const hash = fnv1aHash(cleanText + '|' + agent.name);
+    // Use server-computed hash (UTF-8 FNV-1a) — fixes hash mismatch with Hebrew text
+    const hash = agent.speechHash;
+    if (!hash) { sfxSpeech(); return; }
     if (lastSpokenHash[agent.id] === hash) return;
     lastSpokenHash[agent.id] = hash;
 
@@ -765,51 +763,80 @@ function draw(now) {
     requestAnimationFrame(draw);
 }
 
-function drawGround(now) {
-    const t = now * 0.001;
+function buildGroundCache() {
+    const size = 1200; // covers -600..600 world coords
+    const oc = new OffscreenCanvas(size, size);
+    const g = oc.getContext('2d');
+    g.translate(size / 2, size / 2);
 
     // Grass texture
-    ctx.fillStyle = 'rgba(50,100,50,0.3)';
+    g.fillStyle = 'rgba(50,100,50,0.3)';
     for (let x = -500; x < 500; x += 40) {
         for (let y = -500; y < 500; y += 40) {
-            ctx.fillRect(x, -y, 2, 8);
-            ctx.fillRect(x + 20, -y + 15, 2, 6);
+            g.fillRect(x, -y, 2, 8);
+            g.fillRect(x + 20, -y + 15, 2, 6);
         }
     }
 
     // Paths (light brown roads)
-    ctx.fillStyle = 'rgba(160,130,90,0.35)';
-    // Horizontal path
-    ctx.fillRect(-500, -8, 1000, 16);
-    // Vertical path
-    ctx.fillRect(-8, -500, 16, 1000);
+    g.fillStyle = 'rgba(160,130,90,0.35)';
+    g.fillRect(-500, -8, 1000, 16);
+    g.fillRect(-8, -500, 16, 1000);
+    g.save();
+    g.rotate(Math.PI / 4);
+    g.fillRect(-500, -6, 1000, 12);
+    g.restore();
+    g.save();
+    g.rotate(-Math.PI / 4);
+    g.fillRect(-500, -6, 1000, 12);
+    g.restore();
 
-    // Diagonal paths
-    ctx.save();
-    ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-500, -6, 1000, 12);
-    ctx.restore();
-    ctx.save();
-    ctx.rotate(-Math.PI / 4);
-    ctx.fillRect(-500, -6, 1000, 12);
-    ctx.restore();
+    // Fountain base (static parts)
+    g.beginPath();
+    g.arc(0, 0, 35, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(100,100,100,0.5)';
+    g.fill();
+    g.beginPath();
+    g.arc(0, 0, 30, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(60,140,200,0.45)';
+    g.fill();
+    g.strokeStyle = 'rgba(100,160,220,0.6)';
+    g.lineWidth = 2;
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 0, 8, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(80,80,80,0.7)';
+    g.fill();
 
-    // Center fountain — outer ring
-    ctx.beginPath();
-    ctx.arc(0, 0, 35, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(100,100,100,0.5)';
-    ctx.fill();
+    // Trees
+    for (const [tx, ty] of TREE_POSITIONS) {
+        g.fillStyle = 'rgba(100,70,40,0.7)';
+        g.fillRect(tx - 3, -ty + 10, 6, 10);
+        g.fillStyle = 'rgba(30,70,25,0.65)';
+        g.beginPath(); g.arc(tx, -ty, 18, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(50,110,35,0.55)';
+        g.beginPath(); g.arc(tx - 4, -ty - 4, 14, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(60,130,40,0.45)';
+        g.beginPath(); g.arc(tx + 3, -ty - 2, 11, 0, Math.PI * 2); g.fill();
+    }
 
-    // Water
-    ctx.beginPath();
-    ctx.arc(0, 0, 30, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(60,140,200,0.45)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(100,160,220,0.6)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    return oc;
+}
 
-    // Fountain sparkle animation
+function drawGround(now) {
+    const period = snapshot ? snapshot.dayPeriod : 'day';
+
+    // Rebuild cache only when day period changes
+    if (!groundCache || groundCachePeriod !== period) {
+        groundCache = buildGroundCache();
+        groundCachePeriod = period;
+    }
+
+    // Draw cached ground (centered)
+    ctx.drawImage(groundCache, -600, -600);
+
+    // Animated fountain sparkles (only these redraw per frame)
+    const t = now * 0.001;
     for (let i = 0; i < 7; i++) {
         const angle = t * 0.8 + i * Math.PI * 2 / 7;
         const r = 12 + Math.sin(t * 2 + i * 1.3) * 6;
@@ -819,39 +846,11 @@ function drawGround(now) {
         ctx.arc(Math.cos(angle) * r, Math.sin(angle) * r, 1.5 + Math.sin(t + i) * 0.5, 0, Math.PI * 2);
         ctx.fill();
     }
-
-    // Center pillar
-    ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(80,80,80,0.7)';
-    ctx.fill();
-
-    // Water spout (vertical sparkles)
     for (let i = 0; i < 3; i++) {
         const sy = -10 - i * 5 - Math.sin(t * 4 + i) * 3;
         ctx.fillStyle = `rgba(150,200,255,${0.5 - i * 0.15})`;
         ctx.beginPath();
         ctx.arc(Math.sin(t * 2 + i) * 2, sy, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Trees
-    for (const [tx, ty] of TREE_POSITIONS) {
-        // Trunk
-        ctx.fillStyle = 'rgba(100,70,40,0.7)';
-        ctx.fillRect(tx - 3, -ty + 10, 6, 10);
-        // Foliage (layered circles)
-        ctx.fillStyle = 'rgba(30,70,25,0.65)';
-        ctx.beginPath();
-        ctx.arc(tx, -ty, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(50,110,35,0.55)';
-        ctx.beginPath();
-        ctx.arc(tx - 4, -ty - 4, 14, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(60,130,40,0.45)';
-        ctx.beginPath();
-        ctx.arc(tx + 3, -ty - 2, 11, 0, Math.PI * 2);
         ctx.fill();
     }
 }
@@ -1463,17 +1462,22 @@ function updateAgentsPanel(agents) {
     }
     list.innerHTML = agents.map(a => {
         const needs = a.needs || {};
-        const needLabels = {
-            hunger: '\u05E8\u05E2\u05D1',
-            social: '\u05D7\u05D1\u05E8\u05EA\u05D9',
-            creativity: '\u05D9\u05E6\u05D9\u05E8\u05EA\u05D9\u05D5\u05EA',
-            workDrive: '\u05E2\u05D1\u05D5\u05D3\u05D4',
-            rest: '\u05DE\u05E0\u05D5\u05D7\u05D4'
+        const needMeta = {
+            hunger:    { icon: '\u{1F37D}', label: '\u05E8\u05E2\u05D1',      color: NEED_COLORS.hunger },
+            social:    { icon: '\u{1F4AC}', label: '\u05D7\u05D1\u05E8\u05EA\u05D9',   color: NEED_COLORS.social },
+            creativity:{ icon: '\u{1F3A8}', label: '\u05D9\u05E6\u05D9\u05E8\u05EA\u05D9', color: NEED_COLORS.creativity },
+            workDrive: { icon: '\u{1F4BC}', label: '\u05E2\u05D1\u05D5\u05D3\u05D4',    color: NEED_COLORS.workDrive },
+            rest:      { icon: '\u{1F4A4}', label: '\u05DE\u05E0\u05D5\u05D7\u05D4',    color: NEED_COLORS.rest }
         };
         const needBars = Object.entries(needs).map(([k, v]) => {
-            const color = NEED_COLORS[k] || '#888';
-            const label = needLabels[k] || k;
-            return '<div class="need-bar" title="' + label + ': ' + Math.round(v * 100) + '%"><div class="need-fill" style="width:' + (v * 100) + '%;background:' + color + '"></div></div>';
+            const m = needMeta[k] || { icon: '\u2753', label: k, color: '#888' };
+            const pct = Math.round(v * 100);
+            return '<div class="need-row">' +
+                '<span class="need-icon">' + m.icon + '</span>' +
+                '<span class="need-label">' + m.label + '</span>' +
+                '<div class="need-bar"><div class="need-fill" style="width:' + pct + '%;background:' + m.color + '"></div></div>' +
+                '<span class="need-pct">' + pct + '%</span>' +
+                '</div>';
         }).join('');
         const stateLabels = {
             idle: '\u05DE\u05DE\u05EA\u05D9\u05DF',
@@ -1487,11 +1491,13 @@ function updateAgentsPanel(agents) {
             request: '\u05DE\u05D1\u05E7\u05E9'
         };
         const goalText = stateLabels[a.state] || a.currentGoal || a.state || '';
+        const speechText = a.currentSpeech ? '<div style="font-size:10px;opacity:0.7;margin-top:3px;font-style:italic">\u201C' + (a.currentSpeech.length > 40 ? a.currentSpeech.substring(0,40) + '...' : a.currentSpeech) + '\u201D</div>' : '';
         return '<div class="agent-card" onclick="focusAgent(\'' + a.id + '\')">' +
             '<div class="agent-dot" style="background:' + (a.badgeColor || '#E8734A') + '">' + (a.name ? a.name.charAt(0) : '?') + '</div>' +
             '<div class="agent-info">' +
             '<div class="agent-name">' + (a.name || '') + ' ' + (a.moodEmoji || '') + '</div>' +
             '<div class="agent-role">' + (a.role || '') + ' \u00B7 ' + goalText + '</div>' +
+            speechText +
             '<div class="agent-needs">' + needBars + '</div>' +
             '</div></div>';
     }).join('');
@@ -1570,6 +1576,11 @@ function updateEventsPanel(events) {
 
 function updateUI() {
     if (!snapshot) return;
+
+    // Throttle UI panel updates to max once per second
+    const now = Date.now();
+    if (now - lastUIUpdate < UI_THROTTLE) return;
+    lastUIUpdate = now;
 
     const periodLabels = {
         morning: '\u{1F305} \u05D1\u05D5\u05E7\u05E8',
@@ -1658,12 +1669,39 @@ function connectWS() {
     }
 }
 
+// ========== PRESENCE & RETURN SUMMARY ==========
+function sendPresence() {
+    fetch('/api/presence', { method: 'POST' }).catch(() => {});
+}
+
+function sendConnect() {
+    const lastTick = parseInt(localStorage.getItem('cv_lastTick') || '0');
+    fetch('/api/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lastTick })
+    }).then(r => r.json()).then(data => {
+        if (data.summary) {
+            showToast('\u{1F44B} ' + data.summary);
+        }
+    }).catch(() => {});
+}
+
+// Save lastTick periodically
+setInterval(() => {
+    if (snapshot) localStorage.setItem('cv_lastTick', String(snapshot.tick));
+}, 5000);
+
 // ========== INIT ==========
 // Start polling immediately (primary transport)
 startPolling();
 
 // Also try WebSocket as secondary (won't work on Railway, but try anyway)
 connectWS();
+
+// Presence heartbeat every 10 seconds
+sendConnect();
+setInterval(sendPresence, 10000);
 
 // Start render loop
 requestAnimationFrame(draw);

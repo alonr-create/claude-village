@@ -22,6 +22,7 @@ public struct SimulationSnapshot: Codable, Sendable {
         public let moodEmoji: String
         public let currentGoal: String
         public let currentSpeech: String?
+        public let speechHash: String?
         public let facingLeft: Bool
         public let badgeColor: String  // hex
         public let needs: [String: Double]

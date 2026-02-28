@@ -173,6 +173,30 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
                 respond404(context: context)
             }
 
+        case (.POST, "/api/presence"):
+            state.simulation.pingPresence()
+            respondJSON(context: context, json: #"{"ok":true}"#)
+
+        case (.POST, "/api/connect"):
+            var mutableBody = body
+            if let bytes = mutableBody.readBytes(length: mutableBody.readableBytes) {
+                let data = Data(bytes)
+                let lastTick = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["lastTick"] as? UInt64 ?? 0
+                state.simulation.pingPresence()
+                if let summary = state.simulation.generateReturnSummary(lastTick: lastTick) {
+                    // Pick a random agent to deliver the welcome message
+                    let agents = Array(state.simulation.agents.values)
+                    if let greeter = agents.randomElement() {
+                        state.simulation.speak(greeter, text: "אלון חזר! \(summary) 🎉", duration: 6)
+                    }
+                    respondJSON(context: context, json: "{\"summary\":\"\(summary)\"}")
+                } else {
+                    respondJSON(context: context, json: #"{"summary":null}"#)
+                }
+            } else {
+                respondJSON(context: context, json: #"{"summary":null}"#)
+            }
+
         case (.POST, "/api/food"):
             var mutableBody = body
             if let bytes = mutableBody.readBytes(length: mutableBody.readableBytes) {

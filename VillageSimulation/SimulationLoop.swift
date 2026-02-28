@@ -164,6 +164,13 @@ public class SimulationLoop: @unchecked Sendable {
     private var lastTickTime = Date()
     private var lastAlonCallout: Date = Date.distantPast
 
+    // v3.0: Presence tracking & auto-management
+    public var lastPresencePing: Date = Date()
+    public var isAlonPresent: Bool { Date().timeIntervalSince(lastPresencePing) < 30 }
+    private var autoManagedCount: Int = 0
+    private var eventsWhileAway: [String] = []  // summary for when Alon returns
+    private var tickAtLastConnect: UInt64 = 0
+
     // Turkish foods
     static let turkishFoods: [(emoji: String, name: String)] = [
         ("🥙", "דונר"), ("🍖", "איסקנדר"), ("🥟", "מנטי"), ("🫓", "לחמג׳ון"),
@@ -359,10 +366,79 @@ public class SimulationLoop: @unchecked Sendable {
         // 8. Update velocities for all agents
         updateVelocities()
 
-        // 9. Trim events
+        // 9. Auto-manage requests when Alon is away (Eyal manages)
+        if !isAlonPresent {
+            autoManageRequests()
+        }
+
+        // 10. Trim events
         if events.count > 50 { events = Array(events.suffix(50)) }
 
         return generateSnapshot()
+    }
+
+    // MARK: - Auto-Management (Eyal takes over)
+
+    private func autoManageRequests() {
+        let pending = requests.filter { $0.status == "pending" && Date().timeIntervalSince($0.timestamp) > 15 }
+        guard !pending.isEmpty, let eyal = agents[.eyal] else { return }
+
+        for req in pending {
+            let reqName = agents[req.from]?.name ?? req.from.rawValue
+            let shouldApprove: Bool
+            switch req.type {
+            case "food", "buildPermission":
+                shouldApprove = true
+            default:
+                shouldApprove = Double.random(in: 0...1) < 0.7
+            }
+
+            if shouldApprove {
+                approveRequest(req.id)
+                speak(eyal, text: "אני מאשר — \(reqName), קדימה! 📋", duration: 4)
+                eventsWhileAway.append("אייל אישר בקשה של \(reqName)")
+            } else {
+                denyRequest(req.id)
+                speak(eyal, text: "לא הפעם, \(reqName)... 😅", duration: 3)
+                eventsWhileAway.append("אייל דחה בקשה של \(reqName)")
+            }
+            autoManagedCount += 1
+        }
+    }
+
+    // MARK: - Presence & Return Summary
+
+    public func pingPresence() {
+        lastPresencePing = Date()
+    }
+
+    public func generateReturnSummary(lastTick: UInt64) -> String? {
+        let ticksDiff = tick > lastTick ? tick - lastTick : 0
+        guard ticksDiff > 10 else { return nil }  // only if away for meaningful time
+
+        let minutesAway = Int(Double(ticksDiff) * 0.5 / 60)  // 500ms per tick
+        var parts: [String] = []
+        parts.append("היית בחוץ \(max(1, minutesAway)) דקות")
+
+        // Count conversations, structures, managed requests
+        let recentConvs = events.filter { $0.type == "conversation" }.count
+        let recentBuilds = events.filter { $0.type == "build" }.count
+        if recentConvs > 0 { parts.append("היו \(recentConvs) שיחות") }
+        if recentBuilds > 0 { parts.append("נבנו \(recentBuilds) מבנים") }
+        if autoManagedCount > 0 { parts.append("אייל ניהל \(autoManagedCount) בקשות") }
+
+        // Reset counters
+        autoManagedCount = 0
+        eventsWhileAway = []
+        tickAtLastConnect = tick
+
+        return parts.joined(separator: ", ")
+    }
+
+    /// Make an agent speak (public for server use)
+    public func speak(_ agent: SimAgent, text: String, duration: Double) {
+        agent.currentSpeech = text
+        agent.speechExpiry = Date().addingTimeInterval(duration)
     }
 
     // MARK: - Conversation System
@@ -659,11 +735,6 @@ public class SimulationLoop: @unchecked Sendable {
         }
     }
 
-    private func speak(_ agent: SimAgent, text: String, duration: TimeInterval) {
-        agent.currentSpeech = text
-        agent.speechExpiry = Date().addingTimeInterval(duration)
-    }
-
     private func checkConversations() {
         let agentList = Array(agents.values)
         for i in 0..<agentList.count {
@@ -757,7 +828,13 @@ public class SimulationLoop: @unchecked Sendable {
         let moodEmojis: [SimAgentMood: String] = [.happy: "😊", .content: "🙂", .bored: "😐", .hungry: "🤤", .social: "🗣️", .creative: "🎨", .tired: "😴", .excited: "🤩"]
 
         let agentSnapshots = agents.values.map { agent in
-            SimulationSnapshot.AgentSnapshot(
+            // Compute TTS hash server-side (UTF-8 FNV-1a) so client doesn't need to recompute
+            var speechHash: String? = nil
+            if let speech = agent.currentSpeech {
+                speechHash = Self.ttsHash(text: speech, agentName: agent.name)
+            }
+
+            return SimulationSnapshot.AgentSnapshot(
                 id: agent.id.rawValue,
                 name: agent.name,
                 role: agent.role,
@@ -767,6 +844,7 @@ public class SimulationLoop: @unchecked Sendable {
                 moodEmoji: moodEmojis[agent.mood] ?? "🙂",
                 currentGoal: agent.currentGoal.detail ?? agent.currentGoal.type.rawValue,
                 currentSpeech: agent.currentSpeech,
+                speechHash: speechHash,
                 facingLeft: agent.velocity.x < 0,
                 badgeColor: badgeColors[agent.id] ?? "#888",
                 needs: [
@@ -849,5 +927,22 @@ public class SimulationLoop: @unchecked Sendable {
         }
         structures = saved.structures
         tick = saved.tick
+    }
+
+    // MARK: - TTS Hash (matches TTSCache.hashKey — FNV-1a over UTF-8)
+
+    /// Compute FNV-1a hash of stripped text + agent name, matching TTSCache.hashKey exactly
+    public static func ttsHash(text: String, agentName: String) -> String {
+        // Strip emoji (same logic as TTSCache.stripEmoji)
+        let cleanText = String(text.unicodeScalars.filter { scalar in
+            !(scalar.properties.isEmoji && scalar.value > 0x23F)
+        })
+        let input = cleanText + "|" + agentName
+        var hash: UInt32 = 2166136261
+        for byte in input.utf8 {
+            hash ^= UInt32(byte)
+            hash = hash &* 16777619
+        }
+        return String(hash, radix: 16)
     }
 }
