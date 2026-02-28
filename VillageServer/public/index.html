@@ -94,7 +94,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
     </div>
     <div class="info">
         <span id="tick-info">Tick: 0</span> &middot;
-        <span id="period-info">day</span>
+        <span id="period-info">day</span> &middot;
+        <span id="sound-btn" onclick="toggleSound()" style="cursor:pointer;font-size:16px;">🔇</span>
     </div>
 </div>
 
@@ -141,7 +142,171 @@ let wsMessageCount = 0;
 let snapshotCount = 0;
 
 // Interpolated agent positions (smooth movement)
-const agentPositions = {};  // id → {x, y, targetX, targetY}
+const agentPositions = {};  // id → {startX, startY, targetX, targetY, x, y, moveStart}
+
+// ========== SOUND ENGINE (Web Audio API) ==========
+let audioCtx = null;
+let soundEnabled = false;
+let ambientGain = null;
+let sfxGain = null;
+let ambientNodes = [];
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Master gains
+    ambientGain = audioCtx.createGain();
+    ambientGain.gain.value = 0.12;
+    ambientGain.connect(audioCtx.destination);
+
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.3;
+    sfxGain.connect(audioCtx.destination);
+
+    soundEnabled = true;
+    startAmbience();
+}
+
+function startAmbience() {
+    if (!audioCtx || !soundEnabled) return;
+    // Gentle wind (filtered noise)
+    const bufSize = audioCtx.sampleRate * 4;
+    const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuf;
+    noise.loop = true;
+    const windFilter = audioCtx.createBiquadFilter();
+    windFilter.type = 'lowpass';
+    windFilter.frequency.value = 300;
+    windFilter.Q.value = 0.5;
+    noise.connect(windFilter);
+    windFilter.connect(ambientGain);
+    noise.start();
+    ambientNodes.push(noise);
+
+    // Bird chirps every few seconds
+    scheduleBirdChirp();
+}
+
+function scheduleBirdChirp() {
+    if (!audioCtx || !soundEnabled) return;
+    const delay = 3000 + Math.random() * 8000;
+    setTimeout(() => {
+        if (!soundEnabled) return;
+        playBirdChirp();
+        scheduleBirdChirp();
+    }, delay);
+}
+
+function playBirdChirp() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    // Random bird pitch
+    const baseFreq = 1200 + Math.random() * 1800;
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.linearRampToValueAtTime(baseFreq * (1.1 + Math.random() * 0.4), now + 0.05);
+    osc.frequency.linearRampToValueAtTime(baseFreq * 0.9, now + 0.12);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.01);
+    gain.gain.linearRampToValueAtTime(0, now + 0.15);
+    osc.connect(gain);
+    gain.connect(ambientGain);
+    osc.start(now);
+    osc.stop(now + 0.2);
+    // Sometimes double chirp
+    if (Math.random() < 0.5) {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(baseFreq * 1.2, now + 0.18);
+        osc2.frequency.linearRampToValueAtTime(baseFreq * 1.5, now + 0.25);
+        gain2.gain.setValueAtTime(0, now + 0.18);
+        gain2.gain.linearRampToValueAtTime(0.06, now + 0.2);
+        gain2.gain.linearRampToValueAtTime(0, now + 0.3);
+        osc2.connect(gain2);
+        gain2.connect(ambientGain);
+        osc2.start(now + 0.18);
+        osc2.stop(now + 0.35);
+    }
+}
+
+function playFoodDrop() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Pleasant "plop" sound
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain);
+    gain.connect(sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.25);
+}
+
+function playSpeech() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Soft "blip" for speech bubbles
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800 + Math.random() * 400, now);
+    osc.frequency.linearRampToValueAtTime(600, now + 0.06);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.connect(gain);
+    gain.connect(sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.12);
+}
+
+function playEat() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // "Munch" — two quick notes
+    for (let i = 0; i < 2; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(300 + i * 100, now + i * 0.08);
+        gain.gain.setValueAtTime(0.08, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.06);
+        osc.connect(gain);
+        gain.connect(sfxGain);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.08);
+    }
+}
+
+function toggleSound() {
+    if (!audioCtx) {
+        initAudio();
+        document.getElementById('sound-btn').textContent = '🔊';
+        return;
+    }
+    soundEnabled = !soundEnabled;
+    if (soundEnabled) {
+        audioCtx.resume();
+        ambientGain.gain.value = 0.12;
+        startAmbience();
+        document.getElementById('sound-btn').textContent = '🔊';
+    } else {
+        ambientGain.gain.value = 0;
+        ambientNodes.forEach(n => { try { n.stop(); } catch(e) {} });
+        ambientNodes = [];
+        document.getElementById('sound-btn').textContent = '🔇';
+    }
+}
 
 // Camera
 let camX = 0, camY = 0, camZoom = 0.7;  // start zoomed out more to see everything
@@ -178,31 +343,59 @@ window.addEventListener('resize', resize);
 resize();
 
 // ========== SMOOTH AGENT MOVEMENT ==========
+const POLL_INTERVAL = 2000;  // ms between snapshots
+
 function updateAgentInterpolation() {
     if (!snapshot) return;
+    const now = Date.now();
+
+    // Detect new speech bubbles and eat events for sound effects
+    if (prevSnapshot && soundEnabled) {
+        for (const a of snapshot.agents) {
+            const prev = prevSnapshot.agents.find(p => p.id === a.id);
+            if (prev) {
+                if (a.currentSpeech && a.currentSpeech !== prev.currentSpeech) {
+                    playSpeech();
+                }
+                if (a.state === 'eating' && prev.state !== 'eating') {
+                    playEat();
+                }
+            }
+        }
+    }
+
     for (const a of snapshot.agents) {
         if (!agentPositions[a.id]) {
-            agentPositions[a.id] = { x: a.position.x, y: a.position.y, targetX: a.position.x, targetY: a.position.y };
+            // First time — place immediately
+            agentPositions[a.id] = {
+                startX: a.position.x, startY: a.position.y,
+                targetX: a.position.x, targetY: a.position.y,
+                x: a.position.x, y: a.position.y,
+                moveStart: now
+            };
+        } else {
+            const p = agentPositions[a.id];
+            // New target arrived — start interpolating from current visual position
+            p.startX = p.x;
+            p.startY = p.y;
+            p.targetX = a.position.x;
+            p.targetY = a.position.y;
+            p.moveStart = now;
         }
-        agentPositions[a.id].targetX = a.position.x;
-        agentPositions[a.id].targetY = a.position.y;
     }
 }
 
 function interpolateAgents() {
-    const lerp = 0.15;  // smooth factor — higher = snappier movement
+    const now = Date.now();
     for (const id in agentPositions) {
         const p = agentPositions[id];
-        const dx = p.targetX - p.x;
-        const dy = p.targetY - p.y;
-        // If very close, snap to target
-        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-            p.x = p.targetX;
-            p.y = p.targetY;
-        } else {
-            p.x += dx * lerp;
-            p.y += dy * lerp;
-        }
+        // Time-based interpolation: spread movement over POLL_INTERVAL
+        let t = (now - p.moveStart) / POLL_INTERVAL;
+        t = Math.min(t, 1);  // clamp to [0,1]
+        // Ease-in-out for natural movement
+        t = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
+        p.x = p.startX + (p.targetX - p.startX) * t;
+        p.y = p.startY + (p.targetY - p.startY) * t;
     }
 }
 
@@ -696,6 +889,7 @@ function dropFoodAt(screenX, screenY) {
     }
 
     showToast('🥙 אוכל נזרק!');
+    playFoodDrop();
     foodMode = false;
     selectedFood = null;
     document.getElementById('food-mode').style.display = 'none';
@@ -716,6 +910,7 @@ function quickDropFood() {
         });
     }
     showToast('🥙 אוכל נזרק למרכז הכפר!');
+    playFoodDrop();
 }
 
 // ========== PANELS ==========
@@ -969,8 +1164,9 @@ fetch('/api/snapshot')
         // Set initial positions immediately (no interpolation on load)
         for (const a of data.agents) {
             if (agentPositions[a.id]) {
-                agentPositions[a.id].x = a.position.x;
-                agentPositions[a.id].y = a.position.y;
+                const p = agentPositions[a.id];
+                p.x = p.startX = p.targetX = a.position.x;
+                p.y = p.startY = p.targetY = a.position.y;
             }
         }
         updateUI();
