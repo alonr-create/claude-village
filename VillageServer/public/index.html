@@ -23,7 +23,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 /* Bottom toolbar */
 #toolbar { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom)); background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; gap: 4px; z-index: 100; }
-.tab { flex: 1; text-align: center; padding: 10px 4px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; }
+.tab { flex: 1; text-align: center; padding: 10px 4px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; user-select: none; }
 .tab:hover, .tab.active { background: rgba(255,255,255,0.15); }
 .tab .icon { font-size: 20px; display: block; margin-bottom: 2px; }
 .badge { position: absolute; top: 4px; right: 4px; background: #f44; color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
@@ -35,29 +35,32 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 /* Agent card */
 .agent-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
-.agent-card:hover { background: rgba(255,255,255,0.08); }
-.agent-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
-.agent-info { flex: 1; }
+.agent-card:hover, .agent-card:active { background: rgba(255,255,255,0.08); }
+.agent-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.agent-info { flex: 1; min-width: 0; }
 .agent-name { font-weight: 600; font-size: 14px; }
 .agent-role { font-size: 11px; opacity: 0.6; }
-.agent-mood { font-size: 12px; opacity: 0.8; }
 .agent-needs { display: flex; gap: 4px; margin-top: 4px; }
 .need-bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); overflow: hidden; }
 .need-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
 
 /* Food grid */
 .food-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.food-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 4px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 24px; }
-.food-btn:hover, .food-btn.selected { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); transform: scale(1.05); }
+.food-btn { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 4px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 24px; user-select: none; }
+.food-btn:hover, .food-btn:active, .food-btn.selected { background: rgba(255,255,255,0.2); border-color: #D4AF37; transform: scale(1.05); }
 .food-name { font-size: 10px; margin-top: 4px; opacity: 0.7; }
 .food-hint { text-align: center; font-size: 12px; opacity: 0.5; margin-top: 12px; }
+
+/* Quick drop button */
+.quick-drop { display: block; width: 100%; margin-top: 12px; padding: 14px; border-radius: 12px; border: 2px dashed rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); color: #D4AF37; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; }
+.quick-drop:active { background: rgba(212,175,55,0.3); }
 
 /* Request card */
 .req-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
 .req-from { font-weight: 600; font-size: 13px; }
 .req-msg { font-size: 12px; opacity: 0.8; margin: 6px 0; }
 .req-actions { display: flex; gap: 8px; }
-.req-btn { flex: 1; padding: 8px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.req-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
 .req-approve { background: #2d8a4e; color: #fff; }
 .req-deny { background: #8a2d2d; color: #fff; }
 .req-btn:active { transform: scale(0.95); }
@@ -71,7 +74,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 .empty-msg { text-align: center; padding: 24px; opacity: 0.4; font-size: 13px; }
 
 /* Food drop mode overlay */
-#food-mode { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 12px 24px; border-radius: 20px; font-size: 14px; font-weight: 600; z-index: 101; display: none; pointer-events: none; }
+#food-mode { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(212,175,55,0.9); color: #000; padding: 14px 28px; border-radius: 24px; font-size: 16px; font-weight: 700; z-index: 101; display: none; pointer-events: none; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }
+
+/* Toast notification */
+#toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(45,138,78,0.95); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 200; display: none; pointer-events: none; }
+#toast.show { display: block; animation: toastIn 0.3s ease-out; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 </style>
 </head>
 <body>
@@ -80,7 +89,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 <div id="status">
     <div>
-        <span class="title">Claude Village 🏘️</span>
+        <span class="title">Claude Village</span>
         <span class="conn" id="conn"></span>
     </div>
     <div class="info">
@@ -89,7 +98,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
     </div>
 </div>
 
-<div id="food-mode">🥙 לחץ על המפה להזריק אוכל</div>
+<div id="food-mode">🥙 לחץ על המפה להזריק אוכל!</div>
+<div id="toast"></div>
 
 <div id="panel-agents" class="panel">
     <div class="panel-title">🦀 סוכנים</div>
@@ -99,7 +109,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 <div id="panel-food" class="panel">
     <div class="panel-title">🥙 אוכל טורקי</div>
     <div class="food-grid" id="food-grid"></div>
-    <div class="food-hint">בחר אוכל ולחץ על המפה</div>
+    <div class="food-hint">בחר אוכל ולחץ על המפה, או:</div>
+    <button class="quick-drop" id="quick-drop-btn">🎲 זרוק אוכל אקראי למרכז</button>
 </div>
 
 <div id="panel-requests" class="panel">
@@ -122,12 +133,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 <script>
 // ========== STATE ==========
 let snapshot = null;
+let prevSnapshot = null;
 let ws = null;
 let connected = false;
+let lastSnapshotTime = 0;
+
+// Interpolated agent positions (smooth movement)
+const agentPositions = {};  // id → {x, y, targetX, targetY}
 
 // Camera
-let camX = 0, camY = 0, camZoom = 1;
+let camX = 0, camY = 0, camZoom = 0.7;  // start zoomed out more to see everything
 let dragging = false, dragStartX = 0, dragStartY = 0, camStartX = 0, camStartY = 0;
+let dragDist = 0;  // track drag distance to distinguish tap from drag
 let pinchStartDist = 0, pinchStartZoom = 1;
 
 // Food dropping
@@ -142,25 +159,49 @@ const FOODS = [
     {emoji:"🫖", name:"צ׳אי"}, {emoji:"☕", name:"קפה טורקי"}
 ];
 
-const AGENT_COLORS = { eyal: "#3366EE", yael: "#E55AA0", ido: "#33BB44", roni: "#FF8811" };
 const NEED_COLORS = { hunger: "#ff6b6b", social: "#4ecdc4", creativity: "#a855f7", workDrive: "#f59e0b", rest: "#60a5fa" };
 
 // ========== CANVAS ==========
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+let W, H;
 
 function resize() {
     canvas.width = window.innerWidth * devicePixelRatio;
     canvas.height = window.innerHeight * devicePixelRatio;
-    ctx.scale(devicePixelRatio, devicePixelRatio);
+    W = window.innerWidth;
+    H = window.innerHeight;
 }
 window.addEventListener('resize', resize);
 resize();
 
+// ========== SMOOTH AGENT MOVEMENT ==========
+function updateAgentInterpolation() {
+    if (!snapshot) return;
+    for (const a of snapshot.agents) {
+        if (!agentPositions[a.id]) {
+            agentPositions[a.id] = { x: a.position.x, y: a.position.y, targetX: a.position.x, targetY: a.position.y };
+        }
+        agentPositions[a.id].targetX = a.position.x;
+        agentPositions[a.id].targetY = a.position.y;
+    }
+}
+
+function interpolateAgents() {
+    const lerp = 0.08;  // smooth factor
+    for (const id in agentPositions) {
+        const p = agentPositions[id];
+        p.x += (p.targetX - p.x) * lerp;
+        p.y += (p.targetY - p.y) * lerp;
+    }
+}
+
 // ========== DRAWING ==========
 function draw() {
-    const W = canvas.width / devicePixelRatio;
-    const H = canvas.height / devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+    // Interpolate agent positions every frame
+    interpolateAgents();
 
     // Background based on day period
     let bgColor = '#2a4a2a';
@@ -189,17 +230,26 @@ function draw() {
 
     // Food mode crosshair
     if (foodMode) {
-        ctx.strokeStyle = 'rgba(255,200,50,0.5)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(212,175,55,0.6)';
+        ctx.lineWidth = 1.5;
         ctx.setLineDash([8, 4]);
         ctx.beginPath();
-        ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0);
-        ctx.moveTo(0, -1000); ctx.lineTo(0, 1000);
+        ctx.moveTo(-600, 0); ctx.lineTo(600, 0);
+        ctx.moveTo(0, -600); ctx.lineTo(0, 600);
         ctx.stroke();
         ctx.setLineDash([]);
     }
 
     ctx.restore();
+
+    // Connection status text if not connected
+    if (!connected && !snapshot) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('מתחבר לכפר...', W / 2, H / 2);
+    }
+
     requestAnimationFrame(draw);
 }
 
@@ -218,6 +268,16 @@ function drawGround() {
     ctx.fillRect(-500, -8, 1000, 16);
     ctx.fillRect(-8, -500, 16, 1000);
 
+    // Diagonal paths
+    ctx.save();
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-400, -6, 800, 12);
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillRect(-400, -6, 800, 12);
+    ctx.restore();
+
     // Center fountain
     ctx.beginPath();
     ctx.arc(0, 0, 30, 0, Math.PI * 2);
@@ -227,17 +287,44 @@ function drawGround() {
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Fountain sparkle
+    const t = Date.now() * 0.003;
+    for (let i = 0; i < 5; i++) {
+        const angle = t + i * Math.PI * 0.4;
+        const r = 12 + Math.sin(t * 2 + i) * 5;
+        ctx.fillStyle = 'rgba(150,200,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * r, Math.sin(angle) * r, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     // Fountain center
     ctx.beginPath();
     ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(80,80,80,0.6)';
     ctx.fill();
+
+    // Trees
+    const trees = [[-300, 0], [300, 0], [0, 300], [0, -300], [-250, 250], [250, -250], [250, 250], [-250, -250]];
+    for (const [tx, ty] of trees) {
+        ctx.fillStyle = 'rgba(40,80,30,0.6)';
+        ctx.beginPath();
+        ctx.arc(tx, -ty, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(60,120,40,0.5)';
+        ctx.beginPath();
+        ctx.arc(tx - 3, -ty - 3, 12, 0, Math.PI * 2);
+        ctx.fill();
+        // Trunk
+        ctx.fillStyle = 'rgba(100,70,40,0.7)';
+        ctx.fillRect(tx - 2, -ty + 10, 4, 8);
+    }
 }
 
 function drawHouses(houses) {
     for (const h of houses) {
         const x = h.position.x;
-        const y = -h.position.y; // flip Y
+        const y = -h.position.y;
 
         // House shadow
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
@@ -263,8 +350,9 @@ function drawHouses(houses) {
         ctx.fillStyle = 'rgba(100,70,40,0.8)';
         ctx.fillRect(x - 8, y + 25, 16, 25);
 
-        // Window
-        ctx.fillStyle = h.isActive ? 'rgba(255,230,100,0.7)' : 'rgba(150,180,220,0.3)';
+        // Window glow
+        const isNight = snapshot && (snapshot.dayPeriod === 'night' || snapshot.dayPeriod === 'evening');
+        ctx.fillStyle = isNight ? 'rgba(255,230,100,0.7)' : 'rgba(150,180,220,0.3)';
         ctx.fillRect(x - 25, y + 10, 12, 12);
         ctx.fillRect(x + 13, y + 10, 12, 12);
 
@@ -293,146 +381,182 @@ function drawStructures(structures) {
         const y = -s.position.y;
         const emoji = STRUCT_EMOJIS[s.type] || '🏠';
 
-        ctx.font = '18px serif';
+        ctx.font = '22px serif';
         ctx.textAlign = 'center';
-        ctx.fillText(emoji, x, y);
+        ctx.fillText(emoji, x, y + 6);
 
         ctx.font = '8px -apple-system, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.fillText(s.type, x, y + 14);
+        ctx.fillText(s.type, x, y + 20);
     }
 }
 
 function drawFoods(foods) {
+    const t = Date.now() * 0.004;
     for (const f of foods) {
         const x = f.position.x;
         const y = -f.position.y;
 
-        // Glow
+        // Glow pulse
         if (!f.isBeingEaten) {
+            const glowSize = 14 + Math.sin(t) * 3;
             ctx.beginPath();
-            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.arc(x, y, glowSize, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255,200,50,0.15)';
             ctx.fill();
         }
 
-        ctx.font = f.isBeingEaten ? '14px serif' : '20px serif';
+        const bounce = f.isBeingEaten ? 0 : Math.sin(t * 2) * 2;
+        ctx.font = f.isBeingEaten ? '14px serif' : '22px serif';
         ctx.textAlign = 'center';
         ctx.globalAlpha = f.isBeingEaten ? 0.4 : 1;
-        ctx.fillText(f.emoji, x, y + 6);
+        ctx.fillText(f.emoji, x, y + 6 + bounce);
         ctx.globalAlpha = 1;
 
-        ctx.font = '7px -apple-system, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fillText(f.name, x, y + 18);
+        ctx.font = '8px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText(f.name, x, y + 22);
     }
 }
 
 function drawAgents(agents) {
+    const t = Date.now() * 0.003;
     for (const a of agents) {
-        const x = a.position.x;
-        const y = -a.position.y;
+        // Use interpolated position for smooth movement
+        const interp = agentPositions[a.id];
+        const x = interp ? interp.x : a.position.x;
+        const y = interp ? -interp.y : -a.position.y;
         const color = a.badgeColor;
+
+        // Walking animation: leg wiggle and body bob
+        const isMoving = interp && (Math.abs(interp.targetX - interp.x) > 1 || Math.abs(interp.targetY - interp.y) > 1);
+        const walkBob = isMoving ? Math.sin(t * 8) * 2 : Math.sin(t * 1.5) * 1;
+        const legWiggle = isMoving ? Math.sin(t * 10) * 0.3 : 0;
 
         // Shadow
         ctx.beginPath();
-        ctx.ellipse(x, y + 14, 12, 4, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + 16, 14, 4, 0, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
         ctx.fill();
 
-        // Body (crab-like oval)
+        // Body (crab-like oval) with bob
+        const bodyY = y + walkBob;
         ctx.beginPath();
-        ctx.ellipse(x, y, 14, 10, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, bodyY, 14, 10, 0, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Eyes
+        // Eye stalks + eyes
+        ctx.fillStyle = color;
+        ctx.fillRect(x - 5, bodyY - 12, 2, 5);
+        ctx.fillRect(x + 3, bodyY - 12, 2, 5);
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(x - 4, y - 8, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x + 4, y - 8, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x - 4, bodyY - 13, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 4, bodyY - 13, 3.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.arc(x - 4, y - 8, 1.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x + 4, y - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+        // Pupils look toward movement direction
+        const px = isMoving ? Math.sign(interp.targetX - interp.x) * 1 : 0;
+        ctx.beginPath(); ctx.arc(x - 4 + px, bodyY - 13, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 4 + px, bodyY - 13, 1.5, 0, Math.PI * 2); ctx.fill();
 
-        // Claws
+        // Claws with animation
+        ctx.save();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(x - 14, y - 2); ctx.lineTo(x - 20, y - 8); ctx.lineTo(x - 16, y - 4); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x + 14, y - 2); ctx.lineTo(x + 20, y - 8); ctx.lineTo(x + 16, y - 4); ctx.stroke();
+        ctx.lineWidth = 2.5;
+        // Left claw
+        ctx.save();
+        ctx.translate(x - 14, bodyY - 2);
+        ctx.rotate(legWiggle);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-7, -6); ctx.lineTo(-3, -2); ctx.lineTo(-7, 2); ctx.stroke();
+        ctx.restore();
+        // Right claw
+        ctx.save();
+        ctx.translate(x + 14, bodyY - 2);
+        ctx.rotate(-legWiggle);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(7, -6); ctx.lineTo(3, -2); ctx.lineTo(7, 2); ctx.stroke();
+        ctx.restore();
+        ctx.restore();
 
-        // Legs
-        ctx.lineWidth = 1;
+        // Legs with animation
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
         for (let i = 0; i < 3; i++) {
-            const ly = y - 4 + i * 5;
-            ctx.beginPath(); ctx.moveTo(x - 13, ly); ctx.lineTo(x - 19, ly + 3); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x + 13, ly); ctx.lineTo(x + 19, ly + 3); ctx.stroke();
+            const ly = bodyY - 4 + i * 5;
+            const lw = Math.sin(t * 10 + i) * (isMoving ? 3 : 0);
+            ctx.beginPath(); ctx.moveTo(x - 13, ly); ctx.lineTo(x - 20, ly + 4 + lw); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x + 13, ly); ctx.lineTo(x + 20, ly + 4 - lw); ctx.stroke();
         }
 
-        // Name
-        const nameW = ctx.measureText(a.name).width + 8;
-        ctx.fillStyle = color + '99';
-        roundRect(ctx, x - nameW / 2, y + 12, nameW, 14, 4);
+        // Badge on body
+        ctx.beginPath();
+        ctx.arc(x, bodyY, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.fill();
+        ctx.font = 'bold 6px -apple-system, sans-serif';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.fillText(a.name.charAt(0), x, bodyY + 2.5);
+
+        // Name label
         ctx.font = '9px -apple-system, sans-serif';
+        const nameW = ctx.measureText(a.name).width + 10;
+        ctx.fillStyle = color + 'BB';
+        roundRect(ctx, x - nameW / 2, y + 16, nameW, 15, 5);
+        ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
-        ctx.fillText(a.name, x, y + 23);
+        ctx.fillText(a.name, x, y + 27);
 
         // Mood emoji
-        ctx.font = '12px serif';
-        ctx.fillText(a.moodEmoji, x + 18, y - 10);
+        ctx.font = '11px serif';
+        ctx.fillText(a.moodEmoji, x + 20, bodyY - 6);
 
         // State indicator
-        if (a.state === 'work' || a.state === 'working') {
-            drawStateIcon(x, y - 18, '💻');
-        } else if (a.state === 'build' || a.state === 'building') {
-            drawStateIcon(x, y - 18, '🔨');
-        } else if (a.state === 'eat' || a.state === 'eating') {
-            drawStateIcon(x, y - 18, '🍽️');
-        } else if (a.state === 'rest' || a.state === 'resting') {
-            drawStateIcon(x, y - 18, '💤');
-        } else if (a.state === 'socialize' || a.state === 'talking') {
-            drawStateIcon(x, y - 18, '💬');
+        const stateEmojis = { work: '💻', build: '🔨', eat: '🍽️', rest: '💤', socialize: '💬', explore: '🚶', request: '📋' };
+        const stateEmoji = stateEmojis[a.state];
+        if (stateEmoji && a.state !== 'idle') {
+            ctx.font = '9px serif';
+            ctx.fillText(stateEmoji, x - 18, bodyY - 6);
         }
 
         // Speech bubble
         if (a.currentSpeech) {
-            drawSpeechBubble(x, y - 30, a.currentSpeech);
+            drawSpeechBubble(x, bodyY - 26, a.currentSpeech, color);
         }
     }
 }
 
-function drawStateIcon(x, y, emoji) {
-    ctx.font = '10px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(emoji, x, y);
-}
-
-function drawSpeechBubble(x, y, text) {
+function drawSpeechBubble(x, y, text, color) {
     ctx.font = '10px -apple-system, sans-serif';
-    const metrics = ctx.measureText(text);
-    const w = Math.min(metrics.width + 16, 160);
-    const h = 22;
+    const displayText = text.length > 30 ? text.substring(0, 30) + '...' : text;
+    const metrics = ctx.measureText(displayText);
+    const w = Math.min(metrics.width + 18, 170);
+    const h = 24;
 
     // Bubble background
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    roundRect(ctx, x - w / 2, y - h - 6, w, h, 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    roundRect(ctx, x - w / 2, y - h - 8, w, h, 10);
     ctx.fill();
+    ctx.strokeStyle = color + '66';
+    ctx.lineWidth = 1;
+    roundRect(ctx, x - w / 2, y - h - 8, w, h, 10);
+    ctx.stroke();
 
     // Pointer
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.beginPath();
-    ctx.moveTo(x - 4, y - 6);
-    ctx.lineTo(x, y);
-    ctx.lineTo(x + 4, y - 6);
+    ctx.moveTo(x - 5, y - 8);
+    ctx.lineTo(x, y - 2);
+    ctx.lineTo(x + 5, y - 8);
     ctx.fill();
 
     // Text
     ctx.fillStyle = '#222';
     ctx.textAlign = 'center';
-    ctx.fillText(text.length > 25 ? text.substring(0, 25) + '...' : text, x, y - h + 8);
+    ctx.fillText(displayText, x, y - h + 9);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -449,12 +573,21 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
+// ========== TOAST ==========
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'show';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.className = ''; }, 2000);
+}
+
 // ========== CAMERA CONTROLS ==========
 
 // Mouse drag
 canvas.addEventListener('mousedown', e => {
-    if (foodMode) return;
     dragging = true;
+    dragDist = 0;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     camStartX = camX;
@@ -462,32 +595,44 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
     if (!dragging) return;
-    camX = camStartX + (e.clientX - dragStartX);
-    camY = camStartY - (e.clientY - dragStartY);
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    dragDist = Math.hypot(dx, dy);
+    camX = camStartX + dx;
+    camY = camStartY - dy;
 });
-canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mouseup', e => {
+    const wasDrag = dragDist > 5;
+    dragging = false;
+    // If barely moved and in food mode → drop food
+    if (!wasDrag && foodMode) {
+        dropFoodAt(e.clientX, e.clientY);
+    }
+});
 
 // Mouse wheel zoom
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    camZoom = Math.max(0.3, Math.min(3, camZoom * delta));
+    camZoom = Math.max(0.2, Math.min(3, camZoom * delta));
 }, { passive: false });
 
 // Touch pan & pinch zoom
-let touches = [];
+let lastTouchPos = null;
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    touches = Array.from(e.touches);
-    if (touches.length === 1) {
+    const ts = Array.from(e.touches);
+    if (ts.length === 1) {
         dragging = true;
-        dragStartX = touches[0].clientX;
-        dragStartY = touches[0].clientY;
+        dragDist = 0;
+        dragStartX = ts[0].clientX;
+        dragStartY = ts[0].clientY;
         camStartX = camX;
         camStartY = camY;
-    } else if (touches.length === 2) {
+        lastTouchPos = { x: ts[0].clientX, y: ts[0].clientY };
+    } else if (ts.length === 2) {
         dragging = false;
-        pinchStartDist = Math.hypot(touches[1].clientX - touches[0].clientX, touches[1].clientY - touches[0].clientY);
+        pinchStartDist = Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY);
         pinchStartZoom = camZoom;
     }
 }, { passive: false });
@@ -496,34 +641,31 @@ canvas.addEventListener('touchmove', e => {
     e.preventDefault();
     const ts = Array.from(e.touches);
     if (ts.length === 1 && dragging) {
-        camX = camStartX + (ts[0].clientX - dragStartX);
-        camY = camStartY - (ts[0].clientY - dragStartY);
+        const dx = ts[0].clientX - dragStartX;
+        const dy = ts[0].clientY - dragStartY;
+        dragDist = Math.hypot(dx, dy);
+        camX = camStartX + dx;
+        camY = camStartY - dy;
+        lastTouchPos = { x: ts[0].clientX, y: ts[0].clientY };
     } else if (ts.length === 2) {
         const dist = Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY);
-        camZoom = Math.max(0.3, Math.min(3, pinchStartZoom * (dist / pinchStartDist)));
+        camZoom = Math.max(0.2, Math.min(3, pinchStartZoom * (dist / pinchStartDist)));
     }
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
     e.preventDefault();
+    const wasDrag = dragDist > 10;
     dragging = false;
-    if (e.touches.length === 0 && foodMode && touches.length === 1) {
-        // Single tap in food mode → drop food
-        const t = touches[0];
-        dropFoodAt(t.clientX, t.clientY);
+    // Single tap (barely moved) in food mode → drop food
+    if (e.touches.length === 0 && !wasDrag && foodMode && lastTouchPos) {
+        dropFoodAt(lastTouchPos.x, lastTouchPos.y);
     }
-    touches = Array.from(e.touches);
+    lastTouchPos = null;
 }, { passive: false });
 
-// Click to drop food (mouse)
-canvas.addEventListener('click', e => {
-    if (!foodMode) return;
-    dropFoodAt(e.clientX, e.clientY);
-});
-
+// ========== FOOD DROP ==========
 function dropFoodAt(screenX, screenY) {
-    const W = canvas.width / devicePixelRatio;
-    const H = canvas.height / devicePixelRatio;
     const worldX = (screenX - W / 2 - camX) / camZoom;
     const worldY = -(screenY - H / 2 + camY) / camZoom;
 
@@ -537,10 +679,27 @@ function dropFoodAt(screenX, screenY) {
         });
     }
 
+    showToast('🥙 אוכל נזרק!');
     foodMode = false;
     selectedFood = null;
     document.getElementById('food-mode').style.display = 'none';
     document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
+}
+
+function quickDropFood() {
+    // Drop random food near center
+    const x = (Math.random() - 0.5) * 200;
+    const y = (Math.random() - 0.5) * 200;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'food', x, y }));
+    } else {
+        fetch('/api/food', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x, y })
+        });
+    }
+    showToast('🥙 אוכל נזרק למרכז הכפר!');
 }
 
 // ========== PANELS ==========
@@ -584,6 +743,14 @@ FOODS.forEach(f => {
     foodGrid.appendChild(btn);
 });
 
+// Quick drop button
+document.getElementById('quick-drop-btn').addEventListener('click', () => {
+    quickDropFood();
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    activePanel = null;
+});
+
 function updateAgentsPanel(agents) {
     const list = document.getElementById('agents-list');
     if (!agents) return;
@@ -591,14 +758,16 @@ function updateAgentsPanel(agents) {
         const needs = a.needs || {};
         const needBars = Object.entries(needs).map(([k, v]) => {
             const color = NEED_COLORS[k] || '#888';
-            return `<div class="need-bar" title="${k}: ${Math.round(v*100)}%"><div class="need-fill" style="width:${v*100}%;background:${color}"></div></div>`;
+            const label = {hunger:'רעב',social:'חברתי',creativity:'יצירתיות',workDrive:'עבודה',rest:'מנוחה'}[k] || k;
+            return `<div class="need-bar" title="${label}: ${Math.round(v*100)}%"><div class="need-fill" style="width:${v*100}%;background:${color}"></div></div>`;
         }).join('');
+        const goalHeb = {idle:'ממתין',eat:'אוכל',socialize:'מדבר',work:'עובד',build:'בונה',rest:'נח',explore:'מטייל',request:'מבקש'}[a.state] || a.currentGoal;
         return `
         <div class="agent-card" onclick="focusAgent('${a.id}')">
             <div class="agent-dot" style="background:${a.badgeColor}">${a.name.charAt(0)}</div>
             <div class="agent-info">
                 <div class="agent-name">${a.name} ${a.moodEmoji}</div>
-                <div class="agent-role">${a.role} · ${a.currentGoal}</div>
+                <div class="agent-role">${a.role} · ${goalHeb}</div>
                 <div class="agent-needs">${needBars}</div>
             </div>
         </div>`;
@@ -609,10 +778,15 @@ function focusAgent(id) {
     if (!snapshot) return;
     const agent = snapshot.agents.find(a => a.id === id);
     if (agent) {
-        camX = -agent.position.x * camZoom;
-        camY = agent.position.y * camZoom;
-        camZoom = 1.5;
+        const p = agentPositions[id] || agent.position;
+        camX = -p.x * camZoom;
+        camY = p.y * camZoom;
+        if (camZoom < 1) camZoom = 1.2;
     }
+    // Close panel
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    activePanel = null;
 }
 
 function updateRequestsPanel(requests) {
@@ -650,6 +824,7 @@ function approveReq(id) {
     } else {
         fetch(`/api/requests/${id}/approve`, { method: 'POST' });
     }
+    showToast('✅ בקשה אושרה!');
 }
 
 function denyReq(id) {
@@ -658,6 +833,7 @@ function denyReq(id) {
     } else {
         fetch(`/api/requests/${id}/deny`, { method: 'POST' });
     }
+    showToast('❌ בקשה נדחתה');
 }
 
 function updateEventsPanel(events) {
@@ -681,12 +857,14 @@ function connectWS() {
     ws.onopen = () => {
         connected = true;
         document.getElementById('conn').className = 'conn on';
-        console.log('WebSocket connected');
     };
 
     ws.onmessage = (e) => {
         try {
+            prevSnapshot = snapshot;
             snapshot = JSON.parse(e.data);
+            lastSnapshotTime = Date.now();
+            updateAgentInterpolation();
             updateUI();
         } catch (err) {
             console.error('Parse error:', err);
@@ -696,13 +874,10 @@ function connectWS() {
     ws.onclose = () => {
         connected = false;
         document.getElementById('conn').className = 'conn off';
-        console.log('WebSocket disconnected, reconnecting in 3s...');
         setTimeout(connectWS, 3000);
     };
 
-    ws.onerror = () => {
-        ws.close();
-    };
+    ws.onerror = () => { ws.close(); };
 }
 
 function updateUI() {
@@ -716,11 +891,20 @@ function updateUI() {
 }
 
 // ========== INIT ==========
-
-// Initial fetch
 fetch('/api/snapshot')
     .then(r => r.json())
-    .then(data => { snapshot = data; updateUI(); })
+    .then(data => {
+        snapshot = data;
+        updateAgentInterpolation();
+        // Set initial positions immediately (no interpolation on load)
+        for (const a of data.agents) {
+            if (agentPositions[a.id]) {
+                agentPositions[a.id].x = a.position.x;
+                agentPositions[a.id].y = a.position.y;
+            }
+        }
+        updateUI();
+    })
     .catch(() => {});
 
 connectWS();
