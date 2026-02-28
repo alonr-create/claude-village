@@ -105,8 +105,7 @@ struct RequestRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 // Agent name + badge
                 HStack(spacing: 4) {
-                    Text(request.type.emoji)
-                        .font(.system(size: 10))
+                    VillageIconView(request.type.iconName, size: 12, fallback: request.type.emoji)
                     Text(AgentDefinition.find(request.from).nameHebrew)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(agentColor)
@@ -140,6 +139,17 @@ extension AgentRequest.RequestType {
         case .vacation: return "🏖️"
         case .raise: return "💰"
         case .general: return "💬"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .food: return "req-food"
+        case .buildPermission: return "req-build"
+        case .tool: return "req-tool"
+        case .vacation: return "req-vacation"
+        case .raise: return "req-raise"
+        case .general: return "req-general"
         }
     }
 }

@@ -87,6 +87,19 @@ enum AgentMood: String, Codable, CaseIterable {
         case .excited: return "🤩"
         }
     }
+
+    var iconName: String {
+        switch self {
+        case .happy: return "mood-happy"
+        case .content: return "mood-content"
+        case .bored: return "mood-bored"
+        case .hungry: return "mood-hungry"
+        case .social: return "mood-social"
+        case .creative: return "mood-creative"
+        case .tired: return "mood-tired"
+        case .excited: return "mood-excited"
+        }
+    }
 }
 
 enum AgentGoal: Codable, Equatable {

@@ -34,7 +34,7 @@ class StructureNode: SKNode {
         }
 
         // Builder tag (small label)
-        let tag = SKLabelNode(text: "\(AgentDefinition.find(builder).nameHebrew) 🔨")
+        let tag = SKLabelNode(text: AgentDefinition.find(builder).nameHebrew)
         tag.fontSize = 6
         tag.fontName = "Arial Hebrew"
         tag.fontColor = NSColor.white.withAlphaComponent(0.6)
@@ -42,6 +42,20 @@ class StructureNode: SKNode {
         tag.horizontalAlignmentMode = .center
         tag.zPosition = 3
         addChild(tag)
+
+        // Hammer icon next to builder name
+        if let tex = VillageIcons.texture("hammer") {
+            let hammerSprite = SKSpriteNode(texture: tex, size: CGSize(width: 8, height: 8))
+            hammerSprite.position = CGPoint(x: tag.frame.width / 2 + 6, y: -17)
+            hammerSprite.zPosition = 3
+            addChild(hammerSprite)
+        } else {
+            let hammer = SKLabelNode(text: "🔨")
+            hammer.fontSize = 5
+            hammer.position = CGPoint(x: tag.frame.width / 2 + 6, y: -19)
+            hammer.zPosition = 3
+            addChild(hammer)
+        }
     }
 
     // MARK: - Structure Visuals
@@ -62,11 +76,17 @@ class StructureNode: SKNode {
         board.position = CGPoint(x: 0, y: 8)
         addChild(board)
 
-        // Text on sign
-        let text = SKLabelNode(text: "📌")
-        text.fontSize = 8
-        text.position = CGPoint(x: 0, y: 5)
-        addChild(text)
+        // Sign icon
+        if let tex = VillageIcons.texture("notice-board") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 12, height: 12))
+            sprite.position = CGPoint(x: 0, y: 6)
+            addChild(sprite)
+        } else {
+            let text = SKLabelNode(text: "📌")
+            text.fontSize = 8
+            text.position = CGPoint(x: 0, y: 5)
+            addChild(text)
+        }
     }
 
     private func buildBench() {
@@ -202,11 +222,17 @@ class StructureNode: SKNode {
             addChild(railing)
         }
 
-        // Bridge emoji
-        let emoji = SKLabelNode(text: "🌉")
-        emoji.fontSize = 6
-        emoji.position = CGPoint(x: 0, y: -2)
-        addChild(emoji)
+        // Bridge icon
+        if let tex = VillageIcons.texture("bridge") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 10, height: 10))
+            sprite.position = CGPoint(x: 0, y: -2)
+            addChild(sprite)
+        } else {
+            let emoji = SKLabelNode(text: "🌉")
+            emoji.fontSize = 6
+            emoji.position = CGPoint(x: 0, y: -2)
+            addChild(emoji)
+        }
     }
 
     private func buildWell() {
@@ -258,11 +284,17 @@ class StructureNode: SKNode {
             addChild(post)
         }
 
-        // Notes
-        let note = SKLabelNode(text: "📋")
-        note.fontSize = 8
-        note.position = CGPoint(x: 0, y: 3)
-        addChild(note)
+        // Notes icon
+        if let tex = VillageIcons.texture("clipboard") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 12, height: 12))
+            sprite.position = CGPoint(x: 0, y: 4)
+            addChild(sprite)
+        } else {
+            let note = SKLabelNode(text: "📋")
+            note.fontSize = 8
+            note.position = CGPoint(x: 0, y: 3)
+            addChild(note)
+        }
     }
 
     private func buildTestStation() {
@@ -273,17 +305,29 @@ class StructureNode: SKNode {
         desk.lineWidth = 1
         addChild(desk)
 
-        // Computer
-        let screen = SKLabelNode(text: "🖥️")
-        screen.fontSize = 10
-        screen.position = CGPoint(x: 0, y: 8)
-        addChild(screen)
+        // Computer icon
+        if let tex = VillageIcons.texture("computer-screen") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 14, height: 14))
+            sprite.position = CGPoint(x: 0, y: 8)
+            addChild(sprite)
+        } else {
+            let screen = SKLabelNode(text: "🖥️")
+            screen.fontSize = 10
+            screen.position = CGPoint(x: 0, y: 8)
+            addChild(screen)
+        }
 
-        // Bug badge
-        let bug = SKLabelNode(text: "🐛")
-        bug.fontSize = 6
-        bug.position = CGPoint(x: 8, y: -2)
-        addChild(bug)
+        // Bug icon
+        if let tex = VillageIcons.texture("bug") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 10, height: 10))
+            sprite.position = CGPoint(x: 8, y: -2)
+            addChild(sprite)
+        } else {
+            let bug = SKLabelNode(text: "🐛")
+            bug.fontSize = 6
+            bug.position = CGPoint(x: 8, y: -2)
+            addChild(bug)
+        }
     }
 
     private func buildGeneric() {
@@ -293,10 +337,16 @@ class StructureNode: SKNode {
         block.lineWidth = 1
         addChild(block)
 
-        let emoji = SKLabelNode(text: "🏗️")
-        emoji.fontSize = 10
-        emoji.position = CGPoint(x: 0, y: -4)
-        addChild(emoji)
+        if let tex = VillageIcons.texture("construction") {
+            let sprite = SKSpriteNode(texture: tex, size: CGSize(width: 12, height: 12))
+            sprite.position = CGPoint(x: 0, y: -4)
+            addChild(sprite)
+        } else {
+            let emoji = SKLabelNode(text: "🏗️")
+            emoji.fontSize = 10
+            emoji.position = CGPoint(x: 0, y: -4)
+            addChild(emoji)
+        }
     }
 
     // MARK: - Appear Animation
@@ -316,8 +366,14 @@ class StructureNode: SKNode {
         // Hammer particles
         let hammerAction = SKAction.repeat(SKAction.sequence([
             SKAction.run { [weak self] in
-                let spark = SKLabelNode(text: "⚡")
-                spark.fontSize = 8
+                let spark: SKNode
+                if let tex = VillageIcons.texture("sparkle") {
+                    spark = SKSpriteNode(texture: tex, size: CGSize(width: 12, height: 12))
+                } else {
+                    let label = SKLabelNode(text: "⚡")
+                    label.fontSize = 8
+                    spark = label
+                }
                 spark.position = CGPoint(x: CGFloat.random(in: -10...10), y: CGFloat.random(in: -5...10))
                 spark.zPosition = 5
                 self?.addChild(spark)

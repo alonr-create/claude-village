@@ -7,8 +7,7 @@ struct StatusBar: View {
         HStack(spacing: 16) {
             // App title
             HStack(spacing: 8) {
-                Text("🦀")
-                    .font(.title2)
+                VillageIconView("crab", size: 24, fallback: "🦀")
                 Text("Claude Village")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -18,11 +17,11 @@ struct StatusBar: View {
 
             // Stats
             HStack(spacing: 12) {
-                StatBadge(icon: "🏠", count: 6, label: "בתים")
-                StatBadge(icon: "🦀", count: 4, label: "סוכנים")
+                StatBadge(iconName: "house", fallback: "🏠", count: 6, label: "בתים")
+                StatBadge(iconName: "crab", fallback: "🦀", count: 4, label: "סוכנים")
 
                 let activeTasks = appState.activeTodos.values.flatMap { $0 }.filter { $0.isInProgress }.count
-                StatBadge(icon: "⚡", count: activeTasks, label: "משימות")
+                StatBadge(iconName: "lightning", fallback: "⚡", count: activeTasks, label: "משימות")
             }
 
             // Mobile URL
@@ -31,7 +30,7 @@ struct StatusBar: View {
                 NSPasteboard.general.setString(appState.webServer.localURL, forType: .string)
             }) {
                 HStack(spacing: 4) {
-                    Text("📱")
+                    VillageIconView("mobile", size: 14, fallback: "📱")
                     Text(appState.webServer.localURL)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.7))
@@ -47,7 +46,7 @@ struct StatusBar: View {
             // Time indicator
             HStack(spacing: 4) {
                 let period = DayNightHelper.currentPeriod()
-                Text(periodEmoji(period))
+                VillageIconView(periodIconName(period), size: 16, fallback: periodEmoji(period))
                 Text(periodText(period))
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.7))
@@ -57,6 +56,16 @@ struct StatusBar: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func periodIconName(_ period: DayPeriod) -> String {
+        switch period {
+        case .dawn:    return "dawn"
+        case .day:     return "day"
+        case .sunset:  return "sunset"
+        case .evening: return "evening"
+        case .night:   return "night"
+        }
     }
 
     private func periodEmoji(_ period: DayPeriod) -> String {
@@ -81,14 +90,14 @@ struct StatusBar: View {
 }
 
 struct StatBadge: View {
-    let icon: String
+    let iconName: String
+    let fallback: String
     let count: Int
     let label: String
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(icon)
-                .font(.system(size: 14))
+            VillageIconView(iconName, size: 14, fallback: fallback)
             Text("\(count)")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)

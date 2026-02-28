@@ -2,6 +2,7 @@ import SpriteKit
 
 class FoodNode: SKNode {
     private var foodEmoji: SKLabelNode!
+    private var foodSprite: SKSpriteNode?
     private var glowRing: SKShapeNode!
     var isBeingEaten = false
 
@@ -17,18 +18,18 @@ class FoodNode: SKNode {
     }
 
     /// Turkish food items — the crabs' favorite cuisine!
-    static let turkishFoods: [(emoji: String, name: String)] = [
-        ("🥙", "דונר"),
-        ("🍖", "איסקנדר"),
-        ("🥟", "מנטי"),
-        ("🫓", "לחמג׳ון"),
-        ("🍢", "שיש קבב"),
-        ("🧆", "כופתה"),
-        ("🫕", "פידה"),
-        ("🍚", "פילאף"),
-        ("🍬", "באקלווה"),
-        ("🫖", "צ׳אי"),
-        ("☕", "קפה טורקי"),
+    static let turkishFoods: [(emoji: String, icon: String, name: String)] = [
+        ("🥙", "doner", "דונר"),
+        ("🍖", "iskender", "איסקנדר"),
+        ("🥟", "manti", "מנטי"),
+        ("🫓", "lahmacun", "לחמג׳ון"),
+        ("🍢", "shish-kebab", "שיש קבב"),
+        ("🧆", "kofta", "כופתה"),
+        ("🫕", "pide", "פידה"),
+        ("🍚", "pilaf", "פילאף"),
+        ("🍬", "baklava", "באקלווה"),
+        ("🫖", "chai", "צ׳אי"),
+        ("☕", "turkish-coffee", "קפה טורקי"),
     ]
 
     private(set) var foodName: String = ""
@@ -53,13 +54,24 @@ class FoodNode: SKNode {
         ])
         glowRing.run(SKAction.repeatForever(pulse))
 
-        // Food emoji
-        foodEmoji = SKLabelNode(text: chosen.emoji)
-        foodEmoji.fontSize = 20
-        foodEmoji.verticalAlignmentMode = .center
-        foodEmoji.horizontalAlignmentMode = .center
-        foodEmoji.zPosition = 1
-        addChild(foodEmoji)
+        // Food icon (with emoji fallback)
+        if let texture = VillageIcons.texture(chosen.icon) {
+            let sprite = SKSpriteNode(texture: texture, size: CGSize(width: 24, height: 24))
+            sprite.zPosition = 1
+            addChild(sprite)
+            foodEmoji = SKLabelNode(text: "")  // placeholder for animation reference
+            foodEmoji.zPosition = -99
+            addChild(foodEmoji)
+            // Use sprite for animations instead of foodEmoji
+            foodSprite = sprite
+        } else {
+            foodEmoji = SKLabelNode(text: chosen.emoji)
+            foodEmoji.fontSize = 20
+            foodEmoji.verticalAlignmentMode = .center
+            foodEmoji.horizontalAlignmentMode = .center
+            foodEmoji.zPosition = 1
+            addChild(foodEmoji)
+        }
 
         // Food name label (small Hebrew text below emoji)
         let nameLabel = SKLabelNode(text: chosen.name)
@@ -73,20 +85,21 @@ class FoodNode: SKNode {
         addChild(nameLabel)
 
         // Gentle hover (food + label together)
-        let hoverGroup = SKNode()
         let hover = SKAction.sequence([
             SKAction.moveBy(x: 0, y: 3, duration: 1.0),
             SKAction.moveBy(x: 0, y: -3, duration: 1.0),
         ])
-        foodEmoji.run(SKAction.repeatForever(hover))
+        let animTarget: SKNode = foodSprite ?? foodEmoji
+        animTarget.run(SKAction.repeatForever(hover))
         nameLabel.run(SKAction.repeatForever(hover))
     }
 
     /// Drop-from-sky animation when food is placed
     private func dropAnimation() {
+        let animTarget: SKNode = foodSprite ?? foodEmoji
         let startY: CGFloat = 60
-        foodEmoji.position.y += startY
-        foodEmoji.alpha = 0
+        animTarget.position.y += startY
+        animTarget.alpha = 0
         glowRing.alpha = 0
         glowRing.setScale(0.1)
 
@@ -96,7 +109,7 @@ class FoodNode: SKNode {
             SKAction.fadeIn(withDuration: 0.2),
         ])
         drop.timingMode = .easeIn
-        foodEmoji.run(drop)
+        animTarget.run(drop)
 
         // Bounce on landing
         let bounce = SKAction.sequence([
@@ -106,7 +119,7 @@ class FoodNode: SKNode {
             SKAction.moveBy(x: 0, y: 4, duration: 0.08),
             SKAction.moveBy(x: 0, y: -4, duration: 0.06),
         ])
-        foodEmoji.run(bounce)
+        animTarget.run(bounce)
 
         // Glow ring appears after landing
         glowRing.run(SKAction.sequence([
@@ -148,7 +161,8 @@ class FoodNode: SKNode {
         isBeingEaten = true
 
         // Stop hovering
-        foodEmoji.removeAllActions()
+        let animTarget: SKNode = foodSprite ?? foodEmoji
+        animTarget.removeAllActions()
         glowRing.removeAllActions()
 
         // Shrink + nom nom particles
@@ -162,8 +176,14 @@ class FoodNode: SKNode {
 
         // Yummy particles
         for i in 0..<5 {
-            let crumb = SKLabelNode(text: "✨")
-            crumb.fontSize = 10
+            let crumb: SKNode
+            if let tex = VillageIcons.texture("sparkle") {
+                crumb = SKSpriteNode(texture: tex, size: CGSize(width: 12, height: 12))
+            } else {
+                let label = SKLabelNode(text: "✨")
+                label.fontSize = 10
+                crumb = label
+            }
             crumb.position = .zero
             crumb.zPosition = 3
             addChild(crumb)
@@ -183,7 +203,7 @@ class FoodNode: SKNode {
             crumb.run(fly)
         }
 
-        foodEmoji.run(SKAction.sequence([
+        animTarget.run(SKAction.sequence([
             shrink,
             SKAction.wait(forDuration: 0.2),
             SKAction.run { [weak self] in self?.removeFromParent() }

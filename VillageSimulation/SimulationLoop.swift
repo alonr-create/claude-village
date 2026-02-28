@@ -74,6 +74,7 @@ public struct SimFood: Codable, Sendable, Identifiable {
     public let id: UUID
     public let position: Vec2
     public let emoji: String
+    public let icon: String  // v3.0: icon name
     public let name: String
     public var isBeingEaten: Bool
     public let dropTime: Date
@@ -100,6 +101,7 @@ public struct SimHouse: Codable, Sendable {
     public let id: SimProjectID
     public let name: String
     public let emoji: String
+    public let icon: String  // v3.0: icon name
     public let position: Vec2
     public let roofColor: String
     public let wallColor: String
@@ -172,10 +174,10 @@ public class SimulationLoop: @unchecked Sendable {
     private var tickAtLastConnect: UInt64 = 0
 
     // Turkish foods
-    static let turkishFoods: [(emoji: String, name: String)] = [
-        ("🥙", "דונר"), ("🍖", "איסקנדר"), ("🥟", "מנטי"), ("🫓", "לחמג׳ון"),
-        ("🍢", "שיש קבב"), ("🧆", "כופתה"), ("🫕", "פידה"), ("🍚", "פילאף"),
-        ("🍬", "באקלווה"), ("🫖", "צ׳אי"), ("☕", "קפה טורקי"),
+    static let turkishFoods: [(emoji: String, icon: String, name: String)] = [
+        ("🥙", "doner", "דונר"), ("🍖", "iskender", "איסקנדר"), ("🥟", "manti", "מנטי"), ("🫓", "lahmacun", "לחמג׳ון"),
+        ("🍢", "shish-kebab", "שיש קבב"), ("🧆", "kofta", "כופתה"), ("🫕", "pide", "פידה"), ("🍚", "pilaf", "פילאף"),
+        ("🍬", "baklava", "באקלווה"), ("🫖", "chai", "צ׳אי"), ("☕", "turkish-coffee", "קפה טורקי"),
     ]
 
     // Conversation openers (single-line, used as fallback)
@@ -287,12 +289,12 @@ public class SimulationLoop: @unchecked Sendable {
 
     private func setupHouses() {
         houses = [
-            SimHouse(id: .matzpen, name: "מצפן לעושר", emoji: "🧭", position: Vec2(x: -400, y: 200), roofColor: "#D4AF37", wallColor: "#1C0B2E", isActive: false, fileCount: 0, activeTasks: 0),
-            SimHouse(id: .dekel, name: "דקל לפרישה", emoji: "🌴", position: Vec2(x: -400, y: -200), roofColor: "#1A6FC4", wallColor: "#0D2248", isActive: false, fileCount: 0, activeTasks: 0),
-            SimHouse(id: .alonDev, name: "Alon.dev", emoji: "💻", position: Vec2(x: 400, y: 200), roofColor: "#8B5CF6", wallColor: "#0A0E1A", isActive: false, fileCount: 0, activeTasks: 0),
-            SimHouse(id: .aliza, name: "עליזה המפרסמת", emoji: "📣", position: Vec2(x: 400, y: -200), roofColor: "#DD3333", wallColor: "#4A0E0E", isActive: false, fileCount: 0, activeTasks: 0),
-            SimHouse(id: .boker, name: "הודעת בוקר", emoji: "🌅", position: Vec2(x: 0, y: 400), roofColor: "#10B981", wallColor: "#1F2937", isActive: false, fileCount: 0, activeTasks: 0),
-            SimHouse(id: .games, name: "אפליקציות ומשחקים", emoji: "🎮", position: Vec2(x: 0, y: -400), roofColor: "#F59E0B", wallColor: "#1F2937", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .matzpen, name: "מצפן לעושר", emoji: "🧭", icon: "compass", position: Vec2(x: -400, y: 200), roofColor: "#D4AF37", wallColor: "#1C0B2E", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .dekel, name: "דקל לפרישה", emoji: "🌴", icon: "palm-tree", position: Vec2(x: -400, y: -200), roofColor: "#1A6FC4", wallColor: "#0D2248", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .alonDev, name: "Alon.dev", emoji: "💻", icon: "computer", position: Vec2(x: 400, y: 200), roofColor: "#8B5CF6", wallColor: "#0A0E1A", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .aliza, name: "עליזה המפרסמת", emoji: "📣", icon: "megaphone", position: Vec2(x: 400, y: -200), roofColor: "#DD3333", wallColor: "#4A0E0E", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .boker, name: "הודעת בוקר", emoji: "🌅", icon: "sunrise", position: Vec2(x: 0, y: 400), roofColor: "#10B981", wallColor: "#1F2937", isActive: false, fileCount: 0, activeTasks: 0),
+            SimHouse(id: .games, name: "אפליקציות ומשחקים", emoji: "🎮", icon: "gamepad", position: Vec2(x: 0, y: -400), roofColor: "#F59E0B", wallColor: "#1F2937", isActive: false, fileCount: 0, activeTasks: 0),
         ]
     }
 
@@ -757,7 +759,7 @@ public class SimulationLoop: @unchecked Sendable {
     public func dropFood(at position: Vec2) {
         guard foods.count < 8 else { return }
         let food = SimulationLoop.turkishFoods.randomElement()!
-        foods.append(SimFood(id: UUID(), position: position, emoji: food.emoji, name: food.name, isBeingEaten: false, dropTime: Date()))
+        foods.append(SimFood(id: UUID(), position: position, emoji: food.emoji, icon: food.icon, name: food.name, isBeingEaten: false, dropTime: Date()))
 
         // v2.0: Immediately alert nearby idle agents
         for (_, agent) in agents {
@@ -826,6 +828,7 @@ public class SimulationLoop: @unchecked Sendable {
 
         let badgeColors: [SimAgentID: String] = [.eyal: "#3366EE", .yael: "#E55AA0", .ido: "#33BB44", .roni: "#FF8811"]
         let moodEmojis: [SimAgentMood: String] = [.happy: "😊", .content: "🙂", .bored: "😐", .hungry: "🤤", .social: "🗣️", .creative: "🎨", .tired: "😴", .excited: "🤩"]
+        let moodIcons: [SimAgentMood: String] = [.happy: "mood-happy", .content: "mood-content", .bored: "mood-bored", .hungry: "mood-hungry", .social: "mood-social", .creative: "mood-creative", .tired: "mood-tired", .excited: "mood-excited"]
 
         let agentSnapshots = agents.values.map { agent in
             // Compute TTS hash server-side (UTF-8 FNV-1a) so client doesn't need to recompute
@@ -842,6 +845,7 @@ public class SimulationLoop: @unchecked Sendable {
                 state: agent.currentGoal.type.rawValue,
                 mood: agent.mood.rawValue,
                 moodEmoji: moodEmojis[agent.mood] ?? "🙂",
+                moodIcon: moodIcons[agent.mood] ?? "mood-content",
                 currentGoal: agent.currentGoal.detail ?? agent.currentGoal.type.rawValue,
                 currentSpeech: agent.currentSpeech,
                 speechHash: speechHash,
@@ -872,12 +876,12 @@ public class SimulationLoop: @unchecked Sendable {
         }
 
         let foodSnapshots = foods.map { f in
-            SimulationSnapshot.FoodSnapshot(position: f.position, emoji: f.emoji, name: f.name, isBeingEaten: f.isBeingEaten)
+            SimulationSnapshot.FoodSnapshot(position: f.position, emoji: f.emoji, icon: f.icon, name: f.name, isBeingEaten: f.isBeingEaten)
         }
 
         let houseSnapshots = houses.map { h in
             SimulationSnapshot.HouseSnapshot(
-                id: h.id.rawValue, name: h.name, emoji: h.emoji,
+                id: h.id.rawValue, name: h.name, emoji: h.emoji, icon: h.icon,
                 position: h.position, roofColor: h.roofColor, wallColor: h.wallColor,
                 isActive: h.isActive, fileCount: h.fileCount, activeTasks: h.activeTasks
             )

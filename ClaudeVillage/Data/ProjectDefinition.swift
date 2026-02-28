@@ -22,6 +22,17 @@ struct ProjectDefinition {
     let emoji: String
     let logoFile: String  // filename in Resources/logos/
 
+    var iconName: String {
+        switch id {
+        case .matzpenLeosher: return "compass"
+        case .dekelLeprisha: return "palm-tree"
+        case .alonDev: return "computer"
+        case .alizaHamefarsement: return "megaphone"
+        case .hodaatBoker: return "sunrise"
+        case .appGames: return "gamepad"
+        }
+    }
+
     var folderPath: String {
         let base = NSHomeDirectory() + "/קלוד עבודות/"
         return base + folderName

@@ -20,6 +20,7 @@ public struct SimulationSnapshot: Codable, Sendable {
         public let state: String  // "idle", "walking", "working", "building", "eating", "talking", "resting"
         public let mood: String
         public let moodEmoji: String
+        public let moodIcon: String  // v3.0: icon name for mood
         public let currentGoal: String
         public let currentSpeech: String?
         public let speechHash: String?
@@ -44,6 +45,7 @@ public struct SimulationSnapshot: Codable, Sendable {
     public struct FoodSnapshot: Codable, Sendable {
         public let position: Vec2
         public let emoji: String
+        public let icon: String  // v3.0: icon name for food
         public let name: String
         public let isBeingEaten: Bool
     }
@@ -52,6 +54,7 @@ public struct SimulationSnapshot: Codable, Sendable {
         public let id: String
         public let name: String
         public let emoji: String
+        public let icon: String  // v3.0: icon name for house
         public let position: Vec2
         public let roofColor: String
         public let wallColor: String

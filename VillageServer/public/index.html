@@ -87,6 +87,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 /* Debug overlay */
 #debug { position: fixed; bottom: 72px; left: 8px; font-size: 10px; font-family: monospace; color: rgba(255,255,255,0.4); z-index: 50; pointer-events: none; }
+.village-icon { display: inline-block; vertical-align: middle; object-fit: contain; }
+.tab .village-icon { width: 20px; height: 20px; display: block; margin: 0 auto 2px; }
 </style>
 </head>
 <body>
@@ -103,41 +105,41 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
         <span>&middot;</span>
         <span id="period-info">day</span>
         <span>&middot;</span>
-        <span id="sound-btn" style="cursor:pointer;font-size:16px;">&#x1F507;</span>
+        <span id="sound-btn" style="cursor:pointer;"><img src="/icons/sound-off.png" class="village-icon" style="width:16px;height:16px" onerror="this.outerHTML='&#x1F507;'"></span>
     </div>
 </div>
 
-<div id="food-mode">&#x1F959; לחץ על המפה להזריק אוכל!</div>
+<div id="food-mode"><img src="/icons/doner.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F959;'"> לחץ על המפה להזריק אוכל!</div>
 <div id="toast"></div>
 <div id="debug"></div>
 
 <div id="panel-agents" class="panel">
-    <div class="panel-title">&#x1F980; סוכנים</div>
+    <div class="panel-title"><img src="/icons/crab.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F980;'"> סוכנים</div>
     <div id="agents-list"></div>
 </div>
 
 <div id="panel-food" class="panel">
-    <div class="panel-title">&#x1F959; אוכל טורקי</div>
+    <div class="panel-title"><img src="/icons/doner.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F959;'"> אוכל טורקי</div>
     <div class="food-grid" id="food-grid"></div>
     <div class="food-hint">בחר אוכל ולחץ על המפה, או:</div>
-    <button class="quick-drop" id="quick-drop-btn">&#x1F3B2; זרוק אוכל אקראי למרכז</button>
+    <button class="quick-drop" id="quick-drop-btn"><img src="/icons/dice.png" class="village-icon" style="width:16px;height:16px" onerror="this.outerHTML='&#x1F3B2;'"> זרוק אוכל אקראי למרכז</button>
 </div>
 
 <div id="panel-requests" class="panel">
-    <div class="panel-title">&#x1F4CB; בקשות</div>
+    <div class="panel-title"><img src="/icons/clipboard.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F4CB;'"> בקשות</div>
     <div id="requests-list"></div>
 </div>
 
 <div id="panel-events" class="panel">
-    <div class="panel-title">&#x1F4DC; אירועים</div>
+    <div class="panel-title"><img src="/icons/scroll.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F4DC;'"> אירועים</div>
     <div id="events-list"></div>
 </div>
 
 <div id="toolbar">
-    <div class="tab" data-panel="agents"><span class="icon">&#x1F980;</span>סוכנים</div>
-    <div class="tab" data-panel="food"><span class="icon">&#x1F959;</span>אוכל</div>
-    <div class="tab" data-panel="requests"><span class="icon">&#x1F4CB;</span>בקשות<span class="badge" id="req-badge" style="display:none">0</span></div>
-    <div class="tab" data-panel="events"><span class="icon">&#x1F4DC;</span>אירועים</div>
+    <div class="tab" data-panel="agents"><img src="/icons/crab.png" class="village-icon" onerror="this.outerHTML='&#x1F980;'">סוכנים</div>
+    <div class="tab" data-panel="food"><img src="/icons/doner.png" class="village-icon" onerror="this.outerHTML='&#x1F959;'">אוכל</div>
+    <div class="tab" data-panel="requests"><img src="/icons/clipboard.png" class="village-icon" onerror="this.outerHTML='&#x1F4CB;'">בקשות<span class="badge" id="req-badge" style="display:none">0</span></div>
+    <div class="tab" data-panel="events"><img src="/icons/scroll.png" class="village-icon" onerror="this.outerHTML='&#x1F4DC;'">אירועים</div>
 </div>
 
 <script>
@@ -153,18 +155,126 @@ const WORLD_SIZE = 600;
 
 // Turkish foods
 const FOODS = [
-    {emoji:"\u{1F959}", name:"\u05D3\u05D5\u05E0\u05E8"},
-    {emoji:"\u{1F356}", name:"\u05D0\u05D9\u05E1\u05E7\u05E0\u05D3\u05E8"},
-    {emoji:"\u{1F95F}", name:"\u05DE\u05E0\u05D8\u05D9"},
-    {emoji:"\u{1FAD3}", name:"\u05DC\u05D7\u05DE\u05D2\u05F3\u05D5\u05DF"},
-    {emoji:"\u{1F362}", name:"\u05E9\u05D9\u05E9 \u05E7\u05D1\u05D1"},
-    {emoji:"\u{1F9C6}", name:"\u05DB\u05D5\u05E4\u05EA\u05D4"},
-    {emoji:"\u{1FAD5}", name:"\u05E4\u05D9\u05D3\u05D4"},
-    {emoji:"\u{1F35A}", name:"\u05E4\u05D9\u05DC\u05D0\u05E3"},
-    {emoji:"\u{1F36C}", name:"\u05D1\u05D0\u05E7\u05DC\u05D5\u05D5\u05D4"},
-    {emoji:"\u{1FAD6}", name:"\u05E6\u05F3\u05D0\u05D9"},
-    {emoji:"\u2615", name:"\u05E7\u05E4\u05D4 \u05D8\u05D5\u05E8\u05E7\u05D9"}
+    {emoji:"\u{1F959}", icon:"doner", name:"\u05D3\u05D5\u05E0\u05E8"},
+    {emoji:"\u{1F356}", icon:"iskender", name:"\u05D0\u05D9\u05E1\u05E7\u05E0\u05D3\u05E8"},
+    {emoji:"\u{1F95F}", icon:"manti", name:"\u05DE\u05E0\u05D8\u05D9"},
+    {emoji:"\u{1FAD3}", icon:"lahmacun", name:"\u05DC\u05D7\u05DE\u05D2\u05F3\u05D5\u05DF"},
+    {emoji:"\u{1F362}", icon:"shish-kebab", name:"\u05E9\u05D9\u05E9 \u05E7\u05D1\u05D1"},
+    {emoji:"\u{1F9C6}", icon:"kofta", name:"\u05DB\u05D5\u05E4\u05EA\u05D4"},
+    {emoji:"\u{1FAD5}", icon:"pide", name:"\u05E4\u05D9\u05D3\u05D4"},
+    {emoji:"\u{1F35A}", icon:"pilaf", name:"\u05E4\u05D9\u05DC\u05D0\u05E3"},
+    {emoji:"\u{1F36C}", icon:"baklava", name:"\u05D1\u05D0\u05E7\u05DC\u05D5\u05D5\u05D4"},
+    {emoji:"\u{1FAD6}", icon:"chai", name:"\u05E6\u05F3\u05D0\u05D9"},
+    {emoji:"\u2615", icon:"turkish-coffee", name:"\u05E7\u05E4\u05D4 \u05D8\u05D5\u05E8\u05E7\u05D9"}
 ];
+
+// ========== ICON SYSTEM ==========
+const ICON_BASE = '/icons/';
+const ICON_CACHE = {};
+
+const ICON_NAMES = [
+    'crab','house','compass','palm-tree','computer','megaphone',
+    'sunrise','gamepad','clipboard','scroll','dice',
+    'sound-on','sound-off','approve','deny','lightning','mobile','hammer',
+    'doner','iskender','manti','lahmacun','shish-kebab','kofta',
+    'pide','pilaf','baklava','chai','turkish-coffee',
+    'sign','bench','garden','lantern','construction','bridge',
+    'fountain','path','notice-board','computer-screen','bug',
+    'mood-happy','mood-content','mood-bored','mood-hungry',
+    'mood-social','mood-creative','mood-tired','mood-excited',
+    'state-work','state-build','state-eat','state-sleep',
+    'state-socialize','state-explore','state-request',
+    'dawn','day','sunset','evening','night',
+    'sparkle','celebration','wave',
+    'req-food','req-build','req-tool','req-vacation','req-raise','req-general',
+    'need-hunger','need-social','need-creativity','need-work','need-rest',
+];
+
+const ICON_FALLBACK = {
+    'crab':'\u{1F980}','house':'\u{1F3E0}','compass':'\u{1F9ED}','palm-tree':'\u{1F334}',
+    'computer':'\u{1F4BB}','megaphone':'\u{1F4E3}','sunrise':'\u{1F305}','gamepad':'\u{1F3AE}',
+    'clipboard':'\u{1F4CB}','scroll':'\u{1F4DC}','dice':'\u{1F3B2}',
+    'sound-on':'\u{1F50A}','sound-off':'\u{1F507}','approve':'\u2705','deny':'\u274C',
+    'lightning':'\u26A1','mobile':'\u{1F4F1}','hammer':'\u{1F528}',
+    'doner':'\u{1F959}','iskender':'\u{1F356}','manti':'\u{1F95F}','lahmacun':'\u{1FAD3}',
+    'shish-kebab':'\u{1F362}','kofta':'\u{1F9C6}','pide':'\u{1FAD5}','pilaf':'\u{1F35A}',
+    'baklava':'\u{1F36C}','chai':'\u{1FAD6}','turkish-coffee':'\u2615',
+    'sign':'\u{1FAA7}','bench':'\u{1FA91}','garden':'\u{1F338}','lantern':'\u{1F3EE}',
+    'construction':'\u{1F3D7}','bridge':'\u{1F309}','fountain':'\u26F2','path':'\u{1F6E4}',
+    'notice-board':'\u{1F4CC}','computer-screen':'\u{1F5A5}','bug':'\u{1F41B}',
+    'mood-happy':'\u{1F60A}','mood-content':'\u{1F642}','mood-bored':'\u{1F610}',
+    'mood-hungry':'\u{1F924}','mood-social':'\u{1F5E3}','mood-creative':'\u{1F3A8}',
+    'mood-tired':'\u{1F634}','mood-excited':'\u{1F929}',
+    'state-work':'\u{1F4BB}','state-build':'\u{1F528}','state-eat':'\u{1F37D}',
+    'state-sleep':'\u{1F4A4}','state-socialize':'\u{1F4AC}','state-explore':'\u{1F6B6}',
+    'state-request':'\u{1F4CB}',
+    'dawn':'\u{1F305}','day':'\u2600\uFE0F','sunset':'\u{1F307}','evening':'\u{1F306}','night':'\u{1F319}',
+    'sparkle':'\u2728','celebration':'\u{1F389}','wave':'\u{1F44B}',
+    'req-food':'\u{1F959}','req-build':'\u{1F528}','req-tool':'\u{1F527}',
+    'req-vacation':'\u{1F3D6}','req-raise':'\u{1F4B0}','req-general':'\u{1F4CB}',
+    'need-hunger':'\u{1F37D}','need-social':'\u{1F4AC}','need-creativity':'\u{1F3A8}',
+    'need-work':'\u{1F4BC}','need-rest':'\u{1F4A4}',
+};
+
+const FOOD_EMOJI_TO_ICON = {
+    '\u{1F959}':'doner','\u{1F356}':'iskender','\u{1F95F}':'manti','\u{1FAD3}':'lahmacun',
+    '\u{1F362}':'shish-kebab','\u{1F9C6}':'kofta','\u{1FAD5}':'pide','\u{1F35A}':'pilaf',
+    '\u{1F36C}':'baklava','\u{1FAD6}':'chai','\u2615':'turkish-coffee',
+};
+
+const MOOD_EMOJI_TO_ICON = {
+    '\u{1F60A}':'mood-happy','\u{1F642}':'mood-content','\u{1F610}':'mood-bored',
+    '\u{1F924}':'mood-hungry','\u{1F5E3}\uFE0F':'mood-social','\u{1F5E3}':'mood-social',
+    '\u{1F3A8}':'mood-creative','\u{1F634}':'mood-tired','\u{1F929}':'mood-excited',
+};
+
+const HOUSE_EMOJI_TO_ICON = {
+    '\u{1F9ED}':'compass','\u{1F334}':'palm-tree','\u{1F4BB}':'computer',
+    '\u{1F4E3}':'megaphone','\u{1F305}':'sunrise','\u{1F3AE}':'gamepad',
+};
+
+const STRUCT_ICON_MAP = {
+    '\u05E9\u05DC\u05D8':'sign','\u05E1\u05E4\u05E1\u05DC':'bench',
+    '\u05D2\u05DF \u05E4\u05E8\u05D7\u05D9\u05DD':'garden','\u05E4\u05E0\u05E1':'lantern',
+    '\u05D2\u05D3\u05E8':'construction','\u05D2\u05E9\u05E8':'bridge',
+    '\u05D1\u05D0\u05E8':'fountain','\u05D3\u05E8\u05DA':'path',
+    '\u05DC\u05D5\u05D7 \u05DE\u05D5\u05D3\u05E2\u05D5\u05EA':'notice-board',
+    '\u05DE\u05D1\u05E0\u05D4':'house',
+};
+
+function preloadIcons() {
+    for (const name of ICON_NAMES) {
+        const img = new Image();
+        const entry = { img, loaded: false };
+        img.onload = () => { entry.loaded = true; };
+        img.onerror = () => { entry.loaded = false; };
+        img.src = ICON_BASE + name + '.png';
+        ICON_CACHE[name] = entry;
+    }
+}
+preloadIcons();
+
+function drawIcon(name, x, y, size, fallbackEmoji) {
+    const entry = ICON_CACHE[name];
+    if (entry && entry.loaded) {
+        ctx.drawImage(entry.img, x - size/2, y - size/2, size, size);
+    } else {
+        const fe = fallbackEmoji || ICON_FALLBACK[name] || '?';
+        ctx.font = size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fe, x, y);
+        ctx.textBaseline = 'alphabetic';
+    }
+}
+
+function iconHTML(name, size, cls) {
+    const fallback = ICON_FALLBACK[name] || '';
+    const className = cls ? 'village-icon ' + cls : 'village-icon';
+    return '<img src="' + ICON_BASE + name + '.png" alt="' + name + '" class="' + className + '" ' +
+           'style="width:' + size + 'px;height:' + size + 'px;vertical-align:middle" ' +
+           'onerror="this.outerHTML=\'' + fallback + '\'">';
+}
 
 const NEED_COLORS = { hunger: "#ff6b6b", social: "#4ecdc4", creativity: "#a855f7", workDrive: "#f59e0b", rest: "#60a5fa" };
 
@@ -537,7 +647,7 @@ function toggleSound() {
     const btn = document.getElementById('sound-btn');
     if (!audioCtx) {
         initAudio();
-        btn.textContent = '\u{1F50A}';
+        btn.innerHTML = iconHTML('sound-on', 16);
         return;
     }
     soundEnabled = !soundEnabled;
@@ -549,7 +659,7 @@ function toggleSound() {
         if (ambientAudio) ambientAudio.play().catch(() => {});
         scheduleBirdChirp();
         updateCrickets();
-        btn.textContent = '\u{1F50A}';
+        btn.innerHTML = iconHTML('sound-on', 16);
     } else {
         masterGain.gain.value = 0;
         if (ambientAudio) ambientAudio.pause();
@@ -557,7 +667,7 @@ function toggleSound() {
         if (birdTimeout) clearTimeout(birdTimeout);
         if (cricketTimeout) clearTimeout(cricketTimeout);
         cricketActive = false;
-        btn.textContent = '\u{1F507}';
+        btn.innerHTML = iconHTML('sound-off', 16);
     }
 }
 
@@ -903,10 +1013,9 @@ function drawHouses(houses) {
         ctx.moveTo(x + 13, y + 16); ctx.lineTo(x + 25, y + 16);
         ctx.stroke();
 
-        // House emoji
-        ctx.font = '20px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(h.emoji || '\u{1F3E0}', x, y - 30);
+        // House icon
+        const hIcon = h.icon || HOUSE_EMOJI_TO_ICON[h.emoji] || 'house';
+        drawIcon(hIcon, x, y - 34, 24, h.emoji || '\u{1F3E0}');
 
         // House name label
         ctx.font = '10px -apple-system, sans-serif';
@@ -917,25 +1026,16 @@ function drawHouses(houses) {
 }
 
 function drawStructures(structures) {
-    const STRUCT_EMOJIS = {
-        '\u05E9\u05DC\u05D8': '\u{1FAA7}', '\u05E1\u05E4\u05E1\u05DC': '\u{1FA91}',
-        '\u05D2\u05DF \u05E4\u05E8\u05D7\u05D9\u05DD': '\u{1F338}', '\u05E4\u05E0\u05E1': '\u{1F3EE}',
-        '\u05D2\u05D3\u05E8': '\u{1F3D7}', '\u05D2\u05E9\u05E8': '\u{1F309}',
-        '\u05D1\u05D0\u05E8': '\u26F2', '\u05D3\u05E8\u05DA': '\u{1F6E4}',
-        '\u05DC\u05D5\u05D7 \u05DE\u05D5\u05D3\u05E2\u05D5\u05EA': '\u{1F4CC}',
-        '\u05DE\u05D1\u05E0\u05D4': '\u{1F3E0}'
-    };
     for (const s of structures) {
         const x = s.position.x;
         const y = -s.position.y;
-        const emoji = STRUCT_EMOJIS[s.type] || '\u{1F3E0}';
+        const iconName = STRUCT_ICON_MAP[s.type] || 'house';
 
-        ctx.font = '22px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(emoji, x, y + 6);
+        drawIcon(iconName, x, y, 26, ICON_FALLBACK[iconName]);
 
         ctx.font = '8px -apple-system, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.textAlign = 'center';
         ctx.fillText(s.type || '', x, y + 20);
     }
 }
@@ -961,10 +1061,10 @@ function drawAllFoods(serverFoods, now) {
         }
 
         const bounce = f.isBeingEaten ? 0 : Math.sin(t * 2 + x * 0.01) * 3;
-        ctx.font = f.isBeingEaten ? '14px serif' : '22px serif';
-        ctx.textAlign = 'center';
+        const foodIconName = f.icon || FOOD_EMOJI_TO_ICON[f.emoji] || 'doner';
+        const foodSize = f.isBeingEaten ? 16 : 26;
         ctx.globalAlpha = f.isBeingEaten ? 0.4 : (f._local ? 0.7 : 1);
-        ctx.fillText(f.emoji || '\u{1F959}', x, y + 6 + bounce);
+        drawIcon(foodIconName, x, y + bounce, foodSize, f.emoji || '\u{1F959}');
         ctx.globalAlpha = 1;
 
         // Name label
@@ -1158,19 +1258,24 @@ function drawAgents(agents, now) {
         ctx.textAlign = 'center';
         ctx.fillText(nameText, x, y + 30);
 
-        // Mood emoji above
+        // Mood icon above
         if (a.moodEmoji) {
-            ctx.font = '12px serif';
-            ctx.fillText(a.moodEmoji, x + 22, bodyY - 10);
+            const moodIcon = a.moodIcon || MOOD_EMOJI_TO_ICON[a.moodEmoji];
+            if (moodIcon) {
+                drawIcon(moodIcon, x + 22, bodyY - 14, 16, a.moodEmoji);
+            } else {
+                ctx.font = '12px serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(a.moodEmoji, x + 22, bodyY - 10);
+            }
         }
 
-        // State indicator
+        // State indicator icon
         if (a.state && a.state !== 'idle') {
-            const stateEmojis = { work: '\u{1F4BB}', build: '\u{1F528}', eat: '\u{1F37D}', eating: '\u{1F37D}', rest: '\u{1F4A4}', socialize: '\u{1F4AC}', explore: '\u{1F6B6}', request: '\u{1F4CB}' };
-            const se = stateEmojis[a.state];
-            if (se) {
-                ctx.font = '10px serif';
-                ctx.fillText(se, x - 22, bodyY - 10);
+            const stateIconNames = { work:'state-work', build:'state-build', eat:'state-eat', eating:'state-eat', rest:'state-sleep', socialize:'state-socialize', explore:'state-explore', request:'state-request' };
+            const sin = stateIconNames[a.state];
+            if (sin) {
+                drawIcon(sin, x - 22, bodyY - 14, 14);
             }
         }
 
@@ -1360,7 +1465,7 @@ function dropFoodAt(screenX, screenY) {
     }
 
     // 4. Toast + sound
-    showToast('\u{1F959} \u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7!');
+    showToast('\u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7!');
     sfxFoodDrop();
 
     // 5. Send to server
@@ -1393,7 +1498,7 @@ function quickDropFood() {
     });
 
     spawnFoodParticles(x, y);
-    showToast('\u{1F959} \u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7 \u05DC\u05DE\u05E8\u05DB\u05D6 \u05D4\u05DB\u05E4\u05E8!');
+    showToast('\u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7 \u05DC\u05DE\u05E8\u05DB\u05D6 \u05D4\u05DB\u05E4\u05E8!');
     sfxFoodDrop();
 
     fetch('/api/food', {
@@ -1427,7 +1532,7 @@ const foodGrid = document.getElementById('food-grid');
 FOODS.forEach(f => {
     const btn = document.createElement('div');
     btn.className = 'food-btn';
-    btn.innerHTML = f.emoji + '<div class="food-name">' + f.name + '</div>';
+    btn.innerHTML = iconHTML(f.icon || 'doner', 28) + '<div class="food-name">' + f.name + '</div>';
     btn.addEventListener('click', () => {
         document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
@@ -1462,11 +1567,11 @@ function updateAgentsPanel(agents) {
     list.innerHTML = agents.map(a => {
         const needs = a.needs || {};
         const needMeta = {
-            hunger:    { icon: '\u{1F37D}', label: '\u05E8\u05E2\u05D1',      color: NEED_COLORS.hunger },
-            social:    { icon: '\u{1F4AC}', label: '\u05D7\u05D1\u05E8\u05EA\u05D9',   color: NEED_COLORS.social },
-            creativity:{ icon: '\u{1F3A8}', label: '\u05D9\u05E6\u05D9\u05E8\u05EA\u05D9', color: NEED_COLORS.creativity },
-            workDrive: { icon: '\u{1F4BC}', label: '\u05E2\u05D1\u05D5\u05D3\u05D4',    color: NEED_COLORS.workDrive },
-            rest:      { icon: '\u{1F4A4}', label: '\u05DE\u05E0\u05D5\u05D7\u05D4',    color: NEED_COLORS.rest }
+            hunger:    { icon: iconHTML('need-hunger', 14), label: '\u05E8\u05E2\u05D1',      color: NEED_COLORS.hunger },
+            social:    { icon: iconHTML('need-social', 14), label: '\u05D7\u05D1\u05E8\u05EA\u05D9',   color: NEED_COLORS.social },
+            creativity:{ icon: iconHTML('need-creativity', 14), label: '\u05D9\u05E6\u05D9\u05E8\u05EA\u05D9', color: NEED_COLORS.creativity },
+            workDrive: { icon: iconHTML('need-work', 14), label: '\u05E2\u05D1\u05D5\u05D3\u05D4',    color: NEED_COLORS.workDrive },
+            rest:      { icon: iconHTML('need-rest', 14), label: '\u05DE\u05E0\u05D5\u05D7\u05D4',    color: NEED_COLORS.rest }
         };
         const needBars = Object.entries(needs).map(([k, v]) => {
             const m = needMeta[k] || { icon: '\u2753', label: k, color: '#888' };
@@ -1524,7 +1629,7 @@ function updateRequestsPanel(requests) {
     const badge = document.getElementById('req-badge');
 
     if (!requests || requests.length === 0) {
-        list.innerHTML = '<div class="empty-msg">\u05D0\u05D9\u05DF \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA \u{1F389}</div>';
+        list.innerHTML = '<div class="empty-msg">\u05D0\u05D9\u05DF \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA ' + iconHTML('celebration', 16) + '</div>';
         badge.style.display = 'none';
         return;
     }
@@ -1532,29 +1637,29 @@ function updateRequestsPanel(requests) {
     badge.style.display = 'flex';
     badge.textContent = requests.length;
 
-    const typeEmojis = { food: '\u{1F959}', buildPermission: '\u{1F528}', tool: '\u{1F527}', vacation: '\u{1F3D6}', raise: '\u{1F4B0}', general: '\u{1F4CB}' };
+    const typeIcons = { food:'req-food', buildPermission:'req-build', tool:'req-tool', vacation:'req-vacation', raise:'req-raise', general:'req-general' };
 
     list.innerHTML = requests.map(r => {
-        const te = typeEmojis[r.type] || '\u{1F4CB}';
+        const ti = typeIcons[r.type] || 'req-general';
         return '<div class="req-card">' +
-            '<div class="req-from">' + (r.fromName || '') + ' \u00B7 ' + te + '</div>' +
+            '<div class="req-from">' + (r.fromName || '') + ' \u00B7 ' + iconHTML(ti, 16) + '</div>' +
             '<div class="req-msg">' + (r.message || '') + '</div>' +
             '<div class="req-actions">' +
-            '<button class="req-btn req-approve" onclick="approveReq(\'' + r.id + '\')">\u2705 \u05D0\u05D9\u05E9\u05D5\u05E8</button>' +
-            '<button class="req-btn req-deny" onclick="denyReq(\'' + r.id + '\')">\u274C \u05D3\u05D7\u05D9\u05D9\u05D4</button>' +
+            '<button class="req-btn req-approve" onclick="approveReq(\'' + r.id + '\')">' + iconHTML('approve', 14) + ' \u05D0\u05D9\u05E9\u05D5\u05E8</button>' +
+            '<button class="req-btn req-deny" onclick="denyReq(\'' + r.id + '\')">' + iconHTML('deny', 14) + ' \u05D3\u05D7\u05D9\u05D9\u05D4</button>' +
             '</div></div>';
     }).join('');
 }
 
 window.approveReq = function(id) {
     fetch('/api/requests/' + id + '/approve', { method: 'POST' }).catch(() => {});
-    showToast('\u2705 \u05D1\u05E7\u05E9\u05D4 \u05D0\u05D5\u05E9\u05E8\u05D4!');
+    showToast('\u05D1\u05E7\u05E9\u05D4 \u05D0\u05D5\u05E9\u05E8\u05D4!');
     sfxCelebration();
 };
 
 window.denyReq = function(id) {
     fetch('/api/requests/' + id + '/deny', { method: 'POST' }).catch(() => {});
-    showToast('\u274C \u05D1\u05E7\u05E9\u05D4 \u05E0\u05D3\u05D7\u05EA\u05D4');
+    showToast('\u05D1\u05E7\u05E9\u05D4 \u05E0\u05D3\u05D7\u05EA\u05D4');
 };
 
 function updateEventsPanel(events) {
@@ -1582,14 +1687,14 @@ function updateUI() {
     lastUIUpdate = now;
 
     const periodLabels = {
-        morning: '\u{1F305} \u05D1\u05D5\u05E7\u05E8',
-        day: '\u2600\uFE0F \u05D9\u05D5\u05DD',
-        evening: '\u{1F306} \u05E2\u05E8\u05D1',
-        night: '\u{1F319} \u05DC\u05D9\u05DC\u05D4'
+        morning: iconHTML('dawn', 14) + ' \u05D1\u05D5\u05E7\u05E8',
+        day: iconHTML('day', 14) + ' \u05D9\u05D5\u05DD',
+        evening: iconHTML('evening', 14) + ' \u05E2\u05E8\u05D1',
+        night: iconHTML('night', 14) + ' \u05DC\u05D9\u05DC\u05D4'
     };
 
     document.getElementById('tick-info').textContent = 'Tick: ' + (snapshot.tick || 0);
-    document.getElementById('period-info').textContent = periodLabels[snapshot.dayPeriod] || (snapshot.dayPeriod || 'day');
+    document.getElementById('period-info').innerHTML = periodLabels[snapshot.dayPeriod] || (snapshot.dayPeriod || 'day');
 
     updateAgentsPanel(snapshot.agents || []);
     updateRequestsPanel(snapshot.pendingRequests || []);
@@ -1681,7 +1786,7 @@ function sendConnect() {
         body: JSON.stringify({ lastTick })
     }).then(r => r.json()).then(data => {
         if (data.summary) {
-            showToast('\u{1F44B} ' + data.summary);
+            showToast(data.summary);
         }
     }).catch(() => {});
 }

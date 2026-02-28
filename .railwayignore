@@ -7,5 +7,9 @@ ClaudeVillage.app/
 ClaudeVillage/
 כפר קלוד.app/
 *.png
+**/*.png
+VillageServer/public/icons/
 generate_icons.py
 build-and-run.sh
+icon.png
+screenshot_*.png
