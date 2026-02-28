@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+*.xcodeproj/
+DerivedData/
+.DS_Store
+ClaudeVillage.app/
+ClaudeVillage/
+כפר קלוד.app/
+*.png
+generate_icons.py
+build-and-run.sh
