@@ -12,6 +12,8 @@ final class ServerState: @unchecked Sendable {
     var wsChannels: [ObjectIdentifier: Channel] = [:]
     let lock = NSLock()
     var lastSnapshot: SimulationSnapshot?  // cached from last tick
+    var ttsCache: TTSCache?  // nil if no API key configured
+    var lastSpokenTexts: [String: String] = [:]  // agentID → last speech text (dedup TTS generation)
 
     let dataDir: String = {
         if let envDir = ProcessInfo.processInfo.environment["DATA_DIR"] {
@@ -162,6 +164,15 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
                 respond404(context: context)
             }
 
+        case (.GET, let p) where p.hasPrefix("/api/tts/") && p.hasSuffix(".mp3"):
+            // Serve cached TTS audio
+            let filename = String(p.dropFirst("/api/tts/".count).dropLast(".mp3".count))
+            if let ttsCache = state.ttsCache, let data = ttsCache.getCachedData(hash: filename) {
+                respondMP3(context: context, data: data)
+            } else {
+                respond404(context: context)
+            }
+
         case (.POST, "/api/food"):
             var mutableBody = body
             if let bytes = mutableBody.readBytes(length: mutableBody.readableBytes) {
@@ -230,6 +241,20 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
             "Content-Type": "application/json; charset=utf-8",
             "Content-Length": "\(buf.readableBytes)",
             "Access-Control-Allow-Origin": "*",
+        ])
+        context.write(wrapOutboundOut(.head(head)), promise: nil)
+        context.write(wrapOutboundOut(.body(.byteBuffer(buf))), promise: nil)
+        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
+    }
+
+    private func respondMP3(context: ChannelHandlerContext, data: Data) {
+        var buf = context.channel.allocator.buffer(capacity: data.count)
+        buf.writeBytes(data)
+        let head = HTTPResponseHead(version: .http1_1, status: .ok, headers: [
+            "Content-Type": "audio/mpeg",
+            "Content-Length": "\(buf.readableBytes)",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400",
         ])
         context.write(wrapOutboundOut(.head(head)), promise: nil)
         context.write(wrapOutboundOut(.body(.byteBuffer(buf))), promise: nil)
@@ -333,6 +358,14 @@ struct VillageServerEntry {
 
         state.loadStateIfExists()
 
+        // Initialize TTS if API key is available
+        if let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"], !apiKey.isEmpty {
+            state.ttsCache = TTSCache(dataDir: state.dataDir, apiKey: apiKey)
+            print("ElevenLabs TTS enabled")
+        } else {
+            print("No ELEVENLABS_API_KEY — TTS disabled (synthetic sounds only)")
+        }
+
         print("Claude Village Server starting on port \(port)...")
         print("Data directory: \(state.dataDir)")
 
@@ -372,11 +405,36 @@ struct VillageServerEntry {
         print("Server listening on http://0.0.0.0:\(port)")
         print("Web viewer: http://localhost:\(port)")
 
+        // Pre-warm TTS cache in background
+        if state.ttsCache != nil {
+            Task {
+                await state.ttsCache?.prewarmKnownPhrases()
+            }
+        }
+
         // Simulation tick every 500ms (v2.0: 4x faster for fluid movement)
         let tickTimer = group.next().scheduleRepeatedTask(initialDelay: .milliseconds(500), delay: .milliseconds(500)) { _ in
             let snapshot = state.simulation.doTick()
             state.lastSnapshot = snapshot
             state.broadcastSnapshot(snapshot)
+
+            // Generate TTS for new speech
+            if let ttsCache = state.ttsCache {
+                for agent in snapshot.agents {
+                    if let speech = agent.currentSpeech {
+                        let lastSpeech = state.lastSpokenTexts[agent.id]
+                        if lastSpeech != speech {
+                            state.lastSpokenTexts[agent.id] = speech
+                            let name = agent.name
+                            Task {
+                                let _ = await ttsCache.generate(text: speech, agentName: name)
+                            }
+                        }
+                    } else {
+                        state.lastSpokenTexts.removeValue(forKey: agent.id)
+                    }
+                }
+            }
         }
 
         // Auto-save every 60 seconds

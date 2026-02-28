@@ -172,7 +172,7 @@ public class SimulationLoop: @unchecked Sendable {
     ]
 
     // Conversation openers (single-line, used as fallback)
-    static let conversationOpeners: [SimAgentID: [String]] = [
+    public static let conversationOpeners: [SimAgentID: [String]] = [
         .eyal: ["היי! יש לי תוכנית חדשה 📋", "בואו נסדר את הפרויקטים", "מה המצב עם הדדליינים?"],
         .yael: ["ראיתי עיצוב מדהים! 🎨", "צריך לשפר את ה-UI", "יש לי רעיון לאנימציה חדשה ✨"],
         .ido: ["בדקתי את הביצועים 🔧", "יש בעיית אבטחה", "כתבתי API חדש"],
@@ -180,7 +180,7 @@ public class SimulationLoop: @unchecked Sendable {
     ]
 
     // Multi-line conversation templates
-    static let conversationTemplates: [((SimAgentID, SimAgentID), [(SimAgentID, String)])] = [
+    public static let conversationTemplates: [((SimAgentID, SimAgentID), [(SimAgentID, String)])] = [
         ((.eyal, .yael), [
             (.eyal, "יעל, מה דעתך על העיצוב החדש? 🎨"),
             (.yael, "אני חושבת שצריך יותר צבע"),
@@ -250,7 +250,7 @@ public class SimulationLoop: @unchecked Sendable {
     ]
 
     // Callouts to Alon
-    static let alonCallouts: [SimAgentID: [String]] = [
+    public static let alonCallouts: [SimAgentID: [String]] = [
         .eyal: ["אלון, הכפר גדל! 🏡", "אלון, יש לנו פרויקט חדש!", "אלון, מה אתה חושב?"],
         .yael: ["אלון, זרוק לנו אוכל! 🥙", "אלון, תראה מה עיצבתי! ✨", "אלון, הכפר יפה היום 🌅"],
         .ido: ["אלון, ה-server רץ מעולה 🖥️", "אלון, צריך עוד קפה! ☕", "אלון, מה לעבוד עליו?"],

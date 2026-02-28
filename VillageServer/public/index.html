@@ -144,7 +144,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 
 // ========== CONSTANTS ==========
 const POLL_INTERVAL = 500;
-const LERP_CORRECTION = 0.3;
+const LERP_CORRECTION = 0.3;  // base — overridden by adaptiveLerp()
 const WORLD_SIZE = 600;
 
 // Turkish foods
@@ -488,6 +488,57 @@ function sfxCelebration() {
     }
 }
 
+// ========== TTS (ElevenLabs) ==========
+const speechAudioCache = {};  // hash → HTMLAudioElement
+const lastSpokenHash = {};     // agentID → hash of last played speech
+let ttsEnabled = true;         // can be toggled separately
+
+function fnv1aHash(str) {
+    let hash = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash.toString(16);
+}
+
+function stripEmoji(text) {
+    // Remove emoji characters (surrogate pairs and common emoji ranges)
+    return text.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]|[\u{1F900}-\u{1F9FF}]|[\u{200D}\u{20E3}\u{FE0F}]/gu, '').trim();
+}
+
+function playTTS(agent) {
+    if (!soundEnabled || !ttsEnabled || !agent.currentSpeech) return;
+    const cleanText = stripEmoji(agent.currentSpeech);
+    if (!cleanText || cleanText.length < 2) return;
+
+    const hash = fnv1aHash(cleanText + '|' + agent.name);
+    if (lastSpokenHash[agent.id] === hash) return;
+    lastSpokenHash[agent.id] = hash;
+
+    const url = '/api/tts/' + hash + '.mp3';
+
+    if (speechAudioCache[hash]) {
+        const audio = speechAudioCache[hash];
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        return;
+    }
+
+    // Try fetching — may 404 if not cached on server yet
+    const audio = new Audio(url);
+    audio.volume = 0.7;
+    audio.addEventListener('canplaythrough', () => {
+        speechAudioCache[hash] = audio;
+        audio.play().catch(() => {});
+    }, { once: true });
+    audio.addEventListener('error', () => {
+        // TTS not available — play synthetic blip instead
+        sfxSpeech();
+    }, { once: true });
+    audio.load();
+}
+
 function toggleSound() {
     const btn = document.getElementById('sound-btn');
     if (!audioCtx) {
@@ -569,7 +620,7 @@ function onSnapshotReceived(data) {
             const prev = prevSnapshot.agents ? prevSnapshot.agents.find(p => p.id === a.id) : null;
             if (prev) {
                 if (a.currentSpeech && a.currentSpeech !== prev.currentSpeech) {
-                    sfxSpeech();
+                    playTTS(a);  // Try ElevenLabs TTS, falls back to sfxSpeech
                 }
                 if (a.state === 'eating' && prev.state !== 'eating') {
                     sfxEat();
@@ -580,22 +631,35 @@ function onSnapshotReceived(data) {
         }
     }
 
-    // Update predicted positions: soft-correct with LERP
+    // Update predicted positions: adaptive LERP + velocity smoothing
     for (const a of snapshot.agents) {
-        const vx = a.velocityX || 0;
-        const vy = a.velocityY || 0;
+        const newVx = a.velocityX || 0;
+        const newVy = a.velocityY || 0;
         if (!agentPredicted[a.id]) {
             agentPredicted[a.id] = {
                 x: a.position.x, y: a.position.y,
-                vx: vx, vy: vy
+                vx: newVx, vy: newVy
             };
         } else {
             const pred = agentPredicted[a.id];
-            // Soft correction: lerp predicted toward server position
-            pred.x = pred.x + (a.position.x - pred.x) * LERP_CORRECTION;
-            pred.y = pred.y + (a.position.y - pred.y) * LERP_CORRECTION;
-            pred.vx = vx;
-            pred.vy = vy;
+            // Adaptive LERP: bigger error → faster correction
+            const error = Math.hypot(a.position.x - pred.x, a.position.y - pred.y);
+            let rate;
+            if (error > 80) rate = 0.7;
+            else if (error > 40) rate = 0.45;
+            else if (error > 15) rate = 0.25;
+            else rate = 0.12;
+
+            // Direction change detection — snap faster if direction reversed
+            const dot = pred.vx * newVx + pred.vy * newVy;
+            if (dot < 0) rate = Math.max(rate, 0.5);
+
+            pred.x = pred.x + (a.position.x - pred.x) * rate;
+            pred.y = pred.y + (a.position.y - pred.y) * rate;
+
+            // Velocity smoothing — don't instantly change velocity
+            pred.vx = pred.vx + (newVx - pred.vx) * 0.4;
+            pred.vy = pred.vy + (newVy - pred.vy) * 0.4;
         }
 
         // Init blink timer if needed
