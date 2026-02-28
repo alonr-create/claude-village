@@ -11,6 +11,7 @@ final class ServerState: @unchecked Sendable {
     let simulation = SimulationLoop()
     var wsChannels: [ObjectIdentifier: Channel] = [:]
     let lock = NSLock()
+    var lastSnapshot: SimulationSnapshot?  // cached from last tick
 
     let dataDir: String = {
         if let envDir = ProcessInfo.processInfo.environment["DATA_DIR"] {
@@ -130,8 +131,14 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
             respondHTML(context: context, html: state.loadWebViewer())
 
         case (.GET, "/api/snapshot"):
-            let snapshot = state.simulation.doTick()
-            respondJSON(context: context, encodable: snapshot)
+            // Return cached snapshot — don't call doTick() (that's the timer's job)
+            if let snapshot = state.lastSnapshot {
+                respondJSON(context: context, encodable: snapshot)
+            } else {
+                // First request before timer fired — generate one
+                let snapshot = state.simulation.generateSnapshot()
+                respondJSON(context: context, encodable: snapshot)
+            }
 
         case (.GET, "/api/requests"):
             let pending = state.simulation.requests.filter { $0.status == "pending" }
@@ -365,9 +372,10 @@ struct VillageServerEntry {
         print("Server listening on http://0.0.0.0:\(port)")
         print("Web viewer: http://localhost:\(port)")
 
-        // Simulation tick every 2 seconds
-        let tickTimer = group.next().scheduleRepeatedTask(initialDelay: .seconds(2), delay: .seconds(2)) { _ in
+        // Simulation tick every 500ms (v2.0: 4x faster for fluid movement)
+        let tickTimer = group.next().scheduleRepeatedTask(initialDelay: .milliseconds(500), delay: .milliseconds(500)) { _ in
             let snapshot = state.simulation.doTick()
+            state.lastSnapshot = snapshot
             state.broadcastSnapshot(snapshot)
         }
 

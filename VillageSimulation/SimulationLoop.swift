@@ -11,6 +11,9 @@ public class SimAgent: Codable, @unchecked Sendable {
     public var currentGoal: SimGoal
     public var currentSpeech: String?
     public var speechExpiry: Date?
+    // v2.0: velocity for client-side prediction
+    public var velocity: Vec2 = Vec2(x: 0, y: 0)
+    public var currentSpeed: Double = 0
 
     public init(id: SimAgentID) {
         self.id = id
@@ -105,6 +108,49 @@ public struct SimHouse: Codable, Sendable {
     public var activeTasks: Int
 }
 
+// MARK: - Multi-line Conversation System
+
+public struct SimConversation: Codable, Sendable {
+    public let agentA: SimAgentID
+    public let agentB: SimAgentID
+    public let lines: [(speaker: SimAgentID, text: String)]
+    public var currentLine: Int = 0
+    public var lineTimer: Double = 0  // seconds until next line
+
+    enum CodingKeys: String, CodingKey {
+        case agentA, agentB, linesSpeakers, linesTexts, currentLine, lineTimer
+    }
+
+    public init(agentA: SimAgentID, agentB: SimAgentID, lines: [(SimAgentID, String)]) {
+        self.agentA = agentA
+        self.agentB = agentB
+        self.lines = lines
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        agentA = try c.decode(SimAgentID.self, forKey: .agentA)
+        agentB = try c.decode(SimAgentID.self, forKey: .agentB)
+        let speakers = try c.decode([SimAgentID].self, forKey: .linesSpeakers)
+        let texts = try c.decode([String].self, forKey: .linesTexts)
+        lines = zip(speakers, texts).map { ($0, $1) }
+        currentLine = try c.decode(Int.self, forKey: .currentLine)
+        lineTimer = try c.decode(Double.self, forKey: .lineTimer)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(agentA, forKey: .agentA)
+        try c.encode(agentB, forKey: .agentB)
+        try c.encode(lines.map { $0.0 }, forKey: .linesSpeakers)
+        try c.encode(lines.map { $0.1 }, forKey: .linesTexts)
+        try c.encode(currentLine, forKey: .currentLine)
+        try c.encode(lineTimer, forKey: .lineTimer)
+    }
+
+    public var isFinished: Bool { currentLine >= lines.count }
+}
+
 /// The core headless simulation — no rendering, pure logic
 public class SimulationLoop: @unchecked Sendable {
     public var agents: [SimAgentID: SimAgent] = [:]
@@ -113,8 +159,10 @@ public class SimulationLoop: @unchecked Sendable {
     public var requests: [SimRequest] = []
     public var events: [SimEvent] = []
     public var houses: [SimHouse] = []
+    public var activeConversations: [SimConversation] = []
     public var tick: UInt64 = 0
     private var lastTickTime = Date()
+    private var lastAlonCallout: Date = Date.distantPast
 
     // Turkish foods
     static let turkishFoods: [(emoji: String, name: String)] = [
@@ -123,12 +171,90 @@ public class SimulationLoop: @unchecked Sendable {
         ("🍬", "באקלווה"), ("🫖", "צ׳אי"), ("☕", "קפה טורקי"),
     ]
 
-    // Conversation templates
+    // Conversation openers (single-line, used as fallback)
     static let conversationOpeners: [SimAgentID: [String]] = [
         .eyal: ["היי! יש לי תוכנית חדשה 📋", "בואו נסדר את הפרויקטים", "מה המצב עם הדדליינים?"],
         .yael: ["ראיתי עיצוב מדהים! 🎨", "צריך לשפר את ה-UI", "יש לי רעיון לאנימציה חדשה ✨"],
         .ido: ["בדקתי את הביצועים 🔧", "יש בעיית אבטחה", "כתבתי API חדש"],
         .roni: ["מצאתי באג! 🐛", "הטסטים נכשלו שוב...", "בדקתי את הפיצ׳ר החדש — יש בעיות"],
+    ]
+
+    // Multi-line conversation templates
+    static let conversationTemplates: [((SimAgentID, SimAgentID), [(SimAgentID, String)])] = [
+        ((.eyal, .yael), [
+            (.eyal, "יעל, מה דעתך על העיצוב החדש? 🎨"),
+            (.yael, "אני חושבת שצריך יותר צבע"),
+            (.eyal, "מסכים. בואי נוסיף גרדיאנט"),
+            (.yael, "יופי! אני מתחילה על זה עכשיו ✨"),
+        ]),
+        ((.eyal, .ido), [
+            (.eyal, "עידו, מה המצב עם ה-API?"),
+            (.ido, "כמעט סיימתי. יש בעיית ביצועים קטנה 🔧"),
+            (.eyal, "כמה זמן לתקן?"),
+            (.ido, "תן לי עוד כמה דקות, אני על זה"),
+            (.eyal, "מצוין, סומך עליך 👍"),
+        ]),
+        ((.eyal, .roni), [
+            (.eyal, "רוני, מה יצא מהבדיקות?"),
+            (.roni, "מצאתי 3 באגים 🐛"),
+            (.eyal, "רציני? תדרכי את עידו"),
+            (.roni, "כבר שלחתי לו, הוא על זה"),
+        ]),
+        ((.yael, .ido), [
+            (.yael, "עידו, הממשק צריך שיפור"),
+            (.ido, "מה צריך לשנות?"),
+            (.yael, "הכפתורים קטנים מדי, והצבעים דהויים 🎨"),
+            (.ido, "אני אתקן את ה-CSS"),
+            (.yael, "תודה! גם תוסיף אנימציה ✨"),
+        ]),
+        ((.yael, .roni), [
+            (.yael, "רוני, בואי נבדוק את העיצוב החדש ביחד"),
+            (.roni, "יאללה! אני פותחת את האפליקציה 📱"),
+            (.yael, "מה דעתך?"),
+            (.roni, "יפה! אבל יש באג בצד ימין 🐛"),
+            (.yael, "אופס, אני מתקנת"),
+            (.roni, "עכשיו מושלם! 🎉"),
+        ]),
+        ((.ido, .roni), [
+            (.ido, "רוני, מצאתי באג ב-API"),
+            (.roni, "שוב? תראה לי 🔍"),
+            (.ido, "ה-response חוזר null"),
+            (.roni, "אה, אני יודעת למה. תן לי דקה 🛠️"),
+            (.ido, "את הכי טובה! 😎"),
+        ]),
+        ((.roni, .eyal), [
+            (.roni, "אייל, יש לי עדכון על הבדיקות"),
+            (.eyal, "ספרי"),
+            (.roni, "הכל עובד חוץ מהתשלומים 💳"),
+            (.eyal, "עידו, שמעת? תטפל בזה"),
+        ]),
+        ((.yael, .eyal), [
+            (.yael, "אייל, עיצבתי לוגו חדש! 🎨"),
+            (.eyal, "וואו, תראי"),
+            (.yael, "הנה, מה אתה חושב?"),
+            (.eyal, "מדהים! נעלה את זה מחר ✨"),
+        ]),
+        ((.ido, .eyal), [
+            (.ido, "אייל, סיימתי את ה-backend!"),
+            (.eyal, "יופי! כל הטסטים עוברים?"),
+            (.ido, "95% עוברים, יש 2 שצריכים תיקון קטן"),
+            (.eyal, "תסיים את זה ונעלה לפרודקשן 🚀"),
+        ]),
+        ((.roni, .ido), [
+            (.roni, "עידו, הגרסה החדשה קורסת בנייד 📱"),
+            (.ido, "מה?! איפה בדיוק?"),
+            (.roni, "בדף ההרשמה, כשלוחצים שלח"),
+            (.ido, "מצאתי — בעיית זיכרון. מתקן עכשיו 🔧"),
+            (.roni, "תודה, אני בודקת שוב אחרי"),
+        ]),
+    ]
+
+    // Callouts to Alon
+    static let alonCallouts: [SimAgentID: [String]] = [
+        .eyal: ["אלון, הכפר גדל! 🏡", "אלון, יש לנו פרויקט חדש!", "אלון, מה אתה חושב?"],
+        .yael: ["אלון, זרוק לנו אוכל! 🥙", "אלון, תראה מה עיצבתי! ✨", "אלון, הכפר יפה היום 🌅"],
+        .ido: ["אלון, ה-server רץ מעולה 🖥️", "אלון, צריך עוד קפה! ☕", "אלון, מה לעבוד עליו?"],
+        .roni: ["אלון, הכל עובד! ✅", "אלון, בוא תבדוק את הכפר 🔍", "אלון, יש לנו חדשות! 📢"],
     ]
 
     // Build types per personality
@@ -139,7 +265,7 @@ public class SimulationLoop: @unchecked Sendable {
         .roni: ["ספסל תצפית", "גדר", "עמדת בדיקה"],
     ]
 
-    // Need decay rates per agent
+    // Need decay rates per agent (per minute)
     static let decayRates: [SimAgentID: (h: Double, s: Double, c: Double, w: Double, r: Double)] = [
         .eyal: (0.008, 0.006, 0.003, 0.010, 0.004),
         .yael: (0.008, 0.006, 0.010, 0.005, 0.004),
@@ -175,10 +301,12 @@ public class SimulationLoop: @unchecked Sendable {
         }
     }
 
-    /// Main simulation tick — call every 2 seconds
+    // MARK: - Main Tick (call every 500ms)
+
     public func doTick() -> SimulationSnapshot {
         let now = Date()
-        let deltaMinutes = now.timeIntervalSince(lastTickTime) / 60.0
+        let deltaSeconds = now.timeIntervalSince(lastTickTime)
+        let deltaMinutes = deltaSeconds / 60.0
         lastTickTime = now
         tick += 1
 
@@ -202,24 +330,122 @@ public class SimulationLoop: @unchecked Sendable {
             }
         }
 
-        // 3. Expire food (30 second timeout)
-        foods.removeAll { now.timeIntervalSince($0.dropTime) > 30 && !$0.isBeingEaten }
+        // 3. Expire food (45 second timeout)
+        foods.removeAll { now.timeIntervalSince($0.dropTime) > 45 && !$0.isBeingEaten }
 
-        // 4. Decide & act for each agent
+        // 4. Advance active conversations
+        advanceConversations(deltaSeconds: deltaSeconds)
+
+        // 5. Decide & act for each agent
         for (_, agent) in agents {
+            // Skip agents in active conversation
+            if isInConversation(agent.id) { continue }
+
             if agent.currentGoal.type == .idle || shouldReEvaluate(agent) {
                 decideGoal(for: agent)
             }
-            executeGoal(for: agent, deltaMinutes: deltaMinutes)
+            executeGoal(for: agent, deltaSeconds: deltaSeconds)
         }
 
-        // 5. Check for spontaneous conversations
+        // 6. Check for spontaneous conversations (15% chance, range 120)
         checkConversations()
 
-        // 6. Trim events
+        // 7. Callout to Alon every 30-60 seconds
+        if now.timeIntervalSince(lastAlonCallout) > Double.random(in: 30...60) {
+            calloutToAlon()
+            lastAlonCallout = now
+        }
+
+        // 8. Update velocities for all agents
+        updateVelocities()
+
+        // 9. Trim events
         if events.count > 50 { events = Array(events.suffix(50)) }
 
         return generateSnapshot()
+    }
+
+    // MARK: - Conversation System
+
+    private func isInConversation(_ agentID: SimAgentID) -> Bool {
+        activeConversations.contains { ($0.agentA == agentID || $0.agentB == agentID) && !$0.isFinished }
+    }
+
+    private func advanceConversations(deltaSeconds: Double) {
+        for i in (0..<activeConversations.count).reversed() {
+            activeConversations[i].lineTimer -= deltaSeconds
+            if activeConversations[i].lineTimer <= 0 {
+                // Show next line
+                if activeConversations[i].currentLine < activeConversations[i].lines.count {
+                    let line = activeConversations[i].lines[activeConversations[i].currentLine]
+                    if let agent = agents[line.0] {
+                        speak(agent, text: line.1, duration: 3.0)
+                    }
+                    activeConversations[i].currentLine += 1
+                    activeConversations[i].lineTimer = 3.0  // 3 seconds per line
+                }
+            }
+            // Remove finished conversations
+            if activeConversations[i].isFinished {
+                let conv = activeConversations[i]
+                // Reduce social needs for both participants
+                agents[conv.agentA]?.needs.social = max(0, (agents[conv.agentA]?.needs.social ?? 0) - 0.5)
+                agents[conv.agentB]?.needs.social = max(0, (agents[conv.agentB]?.needs.social ?? 0) - 0.4)
+                agents[conv.agentA]?.currentGoal = SimGoal(type: .idle)
+                agents[conv.agentB]?.currentGoal = SimGoal(type: .idle)
+                events.append(SimEvent(type: "conversation", agentID: conv.agentA,
+                    message: "\(agents[conv.agentA]?.name ?? "") ו\(agents[conv.agentB]?.name ?? "") דיברו", timestamp: Date()))
+                activeConversations.remove(at: i)
+            }
+        }
+    }
+
+    private func startConversation(between a: SimAgent, and b: SimAgent) {
+        // Find a matching template
+        let pair1 = (a.id, b.id)
+        let pair2 = (b.id, a.id)
+
+        var template: [(SimAgentID, String)]?
+        for (pair, lines) in SimulationLoop.conversationTemplates {
+            if pair == pair1 || pair == pair2 {
+                template = lines
+                break
+            }
+        }
+
+        let lines: [(SimAgentID, String)]
+        if let t = template {
+            lines = t
+        } else {
+            // Fallback: generate a simple 3-line conversation
+            let openerA = SimulationLoop.conversationOpeners[a.id]?.randomElement() ?? "שלום!"
+            let openerB = SimulationLoop.conversationOpeners[b.id]?.randomElement() ?? "היי!"
+            lines = [
+                (a.id, openerA),
+                (b.id, openerB),
+                (a.id, "בוא נדבר על זה אחר כך 👋"),
+            ]
+        }
+
+        var conv = SimConversation(agentA: a.id, agentB: b.id, lines: lines)
+        // Show first line immediately
+        if let firstLine = lines.first, let speaker = agents[firstLine.0] {
+            speak(speaker, text: firstLine.1, duration: 3.0)
+            conv.currentLine = 1
+            conv.lineTimer = 3.0
+        }
+        activeConversations.append(conv)
+
+        // Set both agents to socialize mode (they'll face each other)
+        a.currentGoal = SimGoal(type: .socialize, targetAgent: b.id)
+        b.currentGoal = SimGoal(type: .socialize, targetAgent: a.id)
+    }
+
+    private func calloutToAlon() {
+        let idleAgents = agents.values.filter { $0.currentGoal.type == .idle && $0.currentSpeech == nil }
+        guard let agent = idleAgents.randomElement() else { return }
+        let callouts = SimulationLoop.alonCallouts[agent.id] ?? ["אלון! 👋"]
+        speak(agent, text: callouts.randomElement()!, duration: 4)
     }
 
     // MARK: - Decision Making
@@ -241,10 +467,10 @@ public class SimulationLoop: @unchecked Sendable {
                 return agent.position.distance(to: target) < 10
             }
             return true
-        case .work: return Double.random(in: 0...1) < 0.1
+        case .work: return Double.random(in: 0...1) < 0.05  // lower chance per 500ms tick
         case .eat: return foods.filter({ !$0.isBeingEaten }).isEmpty
-        case .socialize: return Double.random(in: 0...1) < 0.05
-        case .build: return Double.random(in: 0...1) < 0.08
+        case .socialize: return Double.random(in: 0...1) < 0.02
+        case .build: return Double.random(in: 0...1) < 0.03
         case .rest: return agent.needs.rest < 0.2
         case .request: return true
         }
@@ -288,8 +514,8 @@ public class SimulationLoop: @unchecked Sendable {
         // Explore
         candidates.append((SimGoal(type: .explore, target: houses.randomElement().map { $0.position }), 0.3))
 
-        // Fun request (5% chance)
-        if Double.random(in: 0...1) < 0.05 {
+        // Fun request (2% chance per 500ms tick ≈ same as 5% per 2s tick)
+        if Double.random(in: 0...1) < 0.02 {
             let funReqs = ["אלון, מגיע לי חופשה! 🏖️", "אלון, אפשר העלאה? 💰", "אלון, צריך ריהוט חדש לכפר! 🪑"]
             candidates.append((SimGoal(type: .request, detail: funReqs.randomElement()!), 0.3))
         }
@@ -297,7 +523,6 @@ public class SimulationLoop: @unchecked Sendable {
         // Pick highest utility with randomness
         guard !candidates.isEmpty else { return }
         let sorted = candidates.sorted { $0.1 > $1.1 }
-        // Top-3 weighted random
         let top = Array(sorted.prefix(3))
         let totalWeight = top.reduce(0.0) { $0 + $1.1 + 0.01 }
         var r = Double.random(in: 0..<totalWeight)
@@ -311,13 +536,15 @@ public class SimulationLoop: @unchecked Sendable {
         agent.currentGoal = top[0].0
     }
 
-    private func executeGoal(for agent: SimAgent, deltaMinutes: Double) {
+    // MARK: - Goal Execution
+
+    private func executeGoal(for agent: SimAgent, deltaSeconds: Double) {
         switch agent.currentGoal.type {
         case .eat:
             if let food = foods.filter({ !$0.isBeingEaten }).min(by: {
                 agent.position.distance(to: $0.position) < agent.position.distance(to: $1.position)
             }) {
-                moveToward(agent, target: food.position, speed: 120)
+                moveToward(agent, target: food.position, speed: 160, dt: deltaSeconds)
                 if agent.position.distance(to: food.position) < 15 {
                     if let idx = foods.firstIndex(where: { $0.id == food.id }) {
                         foods[idx].isBeingEaten = true
@@ -325,7 +552,6 @@ public class SimulationLoop: @unchecked Sendable {
                         let thanks = ["!וואו! דונר! 😍", "!באקלווה! חיים טובים 🍬", "!קבב! הכי טעים 🍖", "!תודה אלון! יאמי 😋"]
                         speak(agent, text: thanks.randomElement()!, duration: 3)
                         events.append(SimEvent(type: "eat", agentID: agent.id, message: "\(agent.name) אכל \(food.name)", timestamp: Date()))
-                        // Remove food after eating
                         foods.remove(at: idx)
                     }
                     agent.currentGoal = SimGoal(type: .idle)
@@ -336,14 +562,12 @@ public class SimulationLoop: @unchecked Sendable {
 
         case .socialize:
             if let targetID = agent.currentGoal.targetAgent, let target = agents[targetID] {
-                moveToward(agent, target: target.position, speed: 80)
+                moveToward(agent, target: target.position, speed: 100, dt: deltaSeconds)
                 if agent.position.distance(to: target.position) < 60 {
-                    let openers = SimulationLoop.conversationOpeners[agent.id] ?? ["שלום!"]
-                    speak(agent, text: openers.randomElement()!, duration: 3)
-                    agent.needs.social = max(0, agent.needs.social - 0.4)
-                    target.needs.social = max(0, target.needs.social - 0.3)
-                    events.append(SimEvent(type: "conversation", agentID: agent.id, message: "\(agent.name) דיבר עם \(target.name)", timestamp: Date()))
-                    agent.currentGoal = SimGoal(type: .idle)
+                    // If not already in a conversation, start one
+                    if !isInConversation(agent.id) && !isInConversation(targetID) {
+                        startConversation(between: agent, and: target)
+                    }
                 }
             } else {
                 agent.currentGoal = SimGoal(type: .idle)
@@ -351,10 +575,10 @@ public class SimulationLoop: @unchecked Sendable {
 
         case .work:
             if let target = agent.currentGoal.target {
-                moveToward(agent, target: target, speed: 80)
+                moveToward(agent, target: target, speed: 100, dt: deltaSeconds)
                 if agent.position.distance(to: target) < 50 {
-                    agent.needs.workDrive = max(0, agent.needs.workDrive - 0.02)
-                    agent.needs.rest += 0.005
+                    agent.needs.workDrive = max(0, agent.needs.workDrive - 0.005 * deltaSeconds * 60)
+                    agent.needs.rest += 0.001 * deltaSeconds * 60
                     agent.needs.clamp()
                 }
             }
@@ -369,10 +593,10 @@ public class SimulationLoop: @unchecked Sendable {
 
         case .rest:
             if let target = agent.currentGoal.target {
-                moveToward(agent, target: target, speed: 40)
+                moveToward(agent, target: target, speed: 50, dt: deltaSeconds)
                 if agent.position.distance(to: target) < 30 {
-                    agent.needs.rest = max(0, agent.needs.rest - 0.03)
-                    if Double.random(in: 0...1) < 0.03 {
+                    agent.needs.rest = max(0, agent.needs.rest - 0.008 * deltaSeconds * 60)
+                    if Double.random(in: 0...1) < 0.008 {  // adjusted for 500ms ticks
                         speak(agent, text: "💤", duration: 2)
                     }
                 }
@@ -380,7 +604,7 @@ public class SimulationLoop: @unchecked Sendable {
 
         case .explore:
             if let target = agent.currentGoal.target {
-                moveToward(agent, target: target, speed: 60)
+                moveToward(agent, target: target, speed: 80, dt: deltaSeconds)
                 if agent.position.distance(to: target) < 15 {
                     let chatter = ["מה קורה פה?", "הכל שקט...", "☕ הפסקת צ׳אי", "נוף יפה! 🏡", "הכפר גדל! 🌱"]
                     if Double.random(in: 0...1) < 0.5 {
@@ -404,15 +628,35 @@ public class SimulationLoop: @unchecked Sendable {
         }
     }
 
-    private func moveToward(_ agent: SimAgent, target: Vec2, speed: Double) {
+    // MARK: - Movement
+
+    private func moveToward(_ agent: SimAgent, target: Vec2, speed: Double, dt: Double) {
         let dx = target.x - agent.position.x
         let dy = target.y - agent.position.y
         let dist = (dx * dx + dy * dy).squareRoot()
-        guard dist > 1 else { return }
-        // speed is in points-per-tick (each tick = 2 seconds)
-        let step = min(speed, dist)
-        agent.position.x += dx / dist * step
-        agent.position.y += dy / dist * step
+        guard dist > 1 else {
+            agent.velocity = Vec2(x: 0, y: 0)
+            agent.currentSpeed = 0
+            return
+        }
+        // speed = points per second, dt = seconds since last tick
+        let step = min(speed * dt, dist)
+        let nx = dx / dist
+        let ny = dy / dist
+        agent.position.x += nx * step
+        agent.position.y += ny * step
+        agent.velocity = Vec2(x: nx * speed, y: ny * speed)
+        agent.currentSpeed = speed
+    }
+
+    private func updateVelocities() {
+        // Clear velocity for agents not moving
+        for (_, agent) in agents {
+            if agent.currentGoal.type == .idle {
+                agent.velocity = Vec2(x: 0, y: 0)
+                agent.currentSpeed = 0
+            }
+        }
     }
 
     private func speak(_ agent: SimAgent, text: String, duration: TimeInterval) {
@@ -426,9 +670,10 @@ public class SimulationLoop: @unchecked Sendable {
             for j in (i + 1)..<agentList.count {
                 let a = agentList[i], b = agentList[j]
                 guard a.currentGoal.type == .idle, b.currentGoal.type == .idle else { continue }
-                if a.position.distance(to: b.position) < 80 && a.needs.social > 0.3 && b.needs.social > 0.3 {
-                    if Double.random(in: 0...1) < 0.08 {
-                        a.currentGoal = SimGoal(type: .socialize, targetAgent: b.id)
+                guard !isInConversation(a.id), !isInConversation(b.id) else { continue }
+                if a.position.distance(to: b.position) < 120 && a.needs.social > 0.25 && b.needs.social > 0.25 {
+                    if Double.random(in: 0...1) < 0.04 {  // ~15% per 2 seconds at 500ms ticks
+                        startConversation(between: a, and: b)
                     }
                 }
             }
@@ -442,6 +687,19 @@ public class SimulationLoop: @unchecked Sendable {
         guard foods.count < 8 else { return }
         let food = SimulationLoop.turkishFoods.randomElement()!
         foods.append(SimFood(id: UUID(), position: position, emoji: food.emoji, name: food.name, isBeingEaten: false, dropTime: Date()))
+
+        // v2.0: Immediately alert nearby idle agents
+        for (_, agent) in agents {
+            if agent.currentGoal.type == .idle && agent.position.distance(to: position) < 300 {
+                agent.currentGoal = SimGoal(type: .eat)
+            }
+        }
+        // Nearest idle agent announces food
+        if let nearest = agents.values
+            .filter({ $0.currentGoal.type == .eat })
+            .min(by: { $0.position.distance(to: position) < $1.position.distance(to: position) }) {
+            speak(nearest, text: "!אוכל! בואו 🥙", duration: 2)
+        }
     }
 
     /// Approve a request
@@ -451,12 +709,10 @@ public class SimulationLoop: @unchecked Sendable {
         let request = requests[idx]
 
         if request.type == "food" {
-            // Drop food near the agent
             if let agent = agents[request.from] {
                 dropFood(at: Vec2(x: agent.position.x + Double.random(in: -30...30), y: agent.position.y + 30))
             }
         } else if request.type == "buildPermission" {
-            // Place structure
             if let agent = agents[request.from] {
                 let type = SimulationLoop.buildPreferences[request.from]?.randomElement() ?? "מבנה"
                 structures.append(SimStructure(id: UUID(), type: type, position: Vec2(
@@ -487,7 +743,7 @@ public class SimulationLoop: @unchecked Sendable {
 
     // MARK: - Snapshot Generation
 
-    private func generateSnapshot() -> SimulationSnapshot {
+    public func generateSnapshot() -> SimulationSnapshot {
         let hour = Calendar.current.component(.hour, from: Date())
         let period: String
         switch hour {
@@ -511,7 +767,7 @@ public class SimulationLoop: @unchecked Sendable {
                 moodEmoji: moodEmojis[agent.mood] ?? "🙂",
                 currentGoal: agent.currentGoal.detail ?? agent.currentGoal.type.rawValue,
                 currentSpeech: agent.currentSpeech,
-                facingLeft: false,
+                facingLeft: agent.velocity.x < 0,
                 badgeColor: badgeColors[agent.id] ?? "#888",
                 needs: [
                     "hunger": agent.needs.hunger,
@@ -519,7 +775,11 @@ public class SimulationLoop: @unchecked Sendable {
                     "creativity": agent.needs.creativity,
                     "workDrive": agent.needs.workDrive,
                     "rest": agent.needs.rest,
-                ]
+                ],
+                velocityX: agent.velocity.x,
+                velocityY: agent.velocity.y,
+                moveTarget: agent.currentGoal.target,
+                moveSpeed: agent.currentSpeed
             )
         }
 

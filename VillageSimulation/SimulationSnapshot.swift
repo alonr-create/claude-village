@@ -25,6 +25,11 @@ public struct SimulationSnapshot: Codable, Sendable {
         public let facingLeft: Bool
         public let badgeColor: String  // hex
         public let needs: [String: Double]
+        // v2.0: velocity for client-side prediction
+        public let velocityX: Double
+        public let velocityY: Double
+        public let moveTarget: Vec2?
+        public let moveSpeed: Double
     }
 
     public struct StructureSnapshot: Codable, Sendable {
