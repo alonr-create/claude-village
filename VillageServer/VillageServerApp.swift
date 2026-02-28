@@ -273,7 +273,7 @@ final class WebSocketHandler: ChannelInboundHandler, @unchecked Sendable {
         case .text:
             var frameData = frame.unmaskedData
             if let text = frameData.readString(length: frameData.readableBytes) {
-                handleWSCommand(text)
+                handleWSCommand(text, context: context)
             }
 
         default:
@@ -281,7 +281,7 @@ final class WebSocketHandler: ChannelInboundHandler, @unchecked Sendable {
         }
     }
 
-    private func handleWSCommand(_ text: String) {
+    private func handleWSCommand(_ text: String, context: ChannelHandlerContext) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let action = json["action"] as? String else { return }
@@ -299,6 +299,12 @@ final class WebSocketHandler: ChannelInboundHandler, @unchecked Sendable {
             if let idStr = json["id"] as? String, let uuid = UUID(uuidString: idStr) {
                 state.simulation.denyRequest(uuid)
             }
+        case "ping":
+            // Respond with pong to keep Railway proxy alive
+            var buf = context.channel.allocator.buffer(capacity: 16)
+            buf.writeString(#"{"action":"pong"}"#)
+            let pong = WebSocketFrame(fin: true, opcode: .text, data: buf)
+            context.writeAndFlush(self.wrapOutboundOut(pong), promise: nil)
         default:
             break
         }

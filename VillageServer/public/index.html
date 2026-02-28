@@ -863,7 +863,11 @@ function updateEventsPanel(events) {
     }).join('');
 }
 
-// ========== WEBSOCKET ==========
+// ========== WEBSOCKET + POLLING FALLBACK ==========
+
+let pingInterval = null;
+let pollingInterval = null;
+let pollingActive = false;
 
 function connectWS() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -872,6 +876,13 @@ function connectWS() {
     ws.onopen = () => {
         connected = true;
         document.getElementById('conn').className = 'conn on';
+        // Send periodic pings to keep connection alive through Railway proxy
+        if (pingInterval) clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'ping' }));
+            }
+        }, 5000);
     };
 
     ws.onmessage = (e) => {
@@ -882,6 +893,11 @@ function connectWS() {
             wsMessageCount++;
             updateAgentInterpolation();
             updateUI();
+            // WS is working — stop polling if active
+            if (pollingActive) {
+                clearInterval(pollingInterval);
+                pollingActive = false;
+            }
         } catch (err) {
             console.error('Parse error:', err);
         }
@@ -890,10 +906,41 @@ function connectWS() {
     ws.onclose = () => {
         connected = false;
         document.getElementById('conn').className = 'conn off';
+        if (pingInterval) clearInterval(pingInterval);
         setTimeout(connectWS, 3000);
+        // Start polling when WS drops
+        if (!pollingActive) startPolling();
     };
 
     ws.onerror = () => { ws.close(); };
+}
+
+// Fallback: if WS is silent after 6 seconds, poll via HTTP
+function checkWSAndFallback() {
+    setTimeout(() => {
+        if (wsMessageCount === 0 && !pollingActive) {
+            startPolling();
+        }
+    }, 6000);
+}
+
+function startPolling() {
+    if (pollingActive) return;
+    pollingActive = true;
+    document.getElementById('conn').className = 'conn on';  // show green — polling works
+    pollingInterval = setInterval(async () => {
+        try {
+            const data = await fetch('/api/snapshot').then(r => r.json());
+            prevSnapshot = snapshot;
+            snapshot = data;
+            lastSnapshotTime = Date.now();
+            wsMessageCount++;
+            updateAgentInterpolation();
+            updateUI();
+        } catch (e) {
+            document.getElementById('conn').className = 'conn off';
+        }
+    }, 2000);
 }
 
 function updateUI() {
@@ -924,6 +971,7 @@ fetch('/api/snapshot')
     .catch(() => {});
 
 connectWS();
+checkWSAndFallback();
 requestAnimationFrame(draw);
 </script>
 </body>
