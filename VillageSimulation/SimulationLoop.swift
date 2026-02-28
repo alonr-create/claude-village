@@ -409,7 +409,8 @@ public class SimulationLoop: @unchecked Sendable {
         let dy = target.y - agent.position.y
         let dist = (dx * dx + dy * dy).squareRoot()
         guard dist > 1 else { return }
-        let step = min(speed * 2.0 / 60.0, dist)  // 2 sec ticks
+        // speed is in points-per-tick (each tick = 2 seconds)
+        let step = min(speed, dist)
         agent.position.x += dx / dist * step
         agent.position.y += dy / dist * step
     }

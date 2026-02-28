@@ -137,6 +137,7 @@ let prevSnapshot = null;
 let ws = null;
 let connected = false;
 let lastSnapshotTime = 0;
+let wsMessageCount = 0;
 
 // Interpolated agent positions (smooth movement)
 const agentPositions = {};  // id → {x, y, targetX, targetY}
@@ -188,11 +189,19 @@ function updateAgentInterpolation() {
 }
 
 function interpolateAgents() {
-    const lerp = 0.08;  // smooth factor
+    const lerp = 0.15;  // smooth factor — higher = snappier movement
     for (const id in agentPositions) {
         const p = agentPositions[id];
-        p.x += (p.targetX - p.x) * lerp;
-        p.y += (p.targetY - p.y) * lerp;
+        const dx = p.targetX - p.x;
+        const dy = p.targetY - p.y;
+        // If very close, snap to target
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            p.x = p.targetX;
+            p.y = p.targetY;
+        } else {
+            p.x += dx * lerp;
+            p.y += dy * lerp;
+        }
     }
 }
 
@@ -249,6 +258,12 @@ function draw() {
         ctx.textAlign = 'center';
         ctx.fillText('מתחבר לכפר...', W / 2, H / 2);
     }
+
+    // Debug: show WS message count bottom-left
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`ws:${wsMessageCount} agents:${snapshot ? snapshot.agents.length : 0} zoom:${camZoom.toFixed(1)}`, 8, H - 8);
 
     requestAnimationFrame(draw);
 }
@@ -864,6 +879,7 @@ function connectWS() {
             prevSnapshot = snapshot;
             snapshot = JSON.parse(e.data);
             lastSnapshotTime = Date.now();
+            wsMessageCount++;
             updateAgentInterpolation();
             updateUI();
         } catch (err) {
