@@ -212,9 +212,45 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
                 respondJSON(context: context, json: #"{"error":"empty body"}"#, status: .badRequest)
             }
 
+        case (.GET, "/village-ambient.mp3"):
+            serveStaticFile(context: context, directory: "public", filename: "village-ambient.mp3", contentType: "audio/mpeg")
+
+        case (.GET, let p) where p.hasPrefix("/icons/"):
+            let filename = String(p.dropFirst("/icons/".count))
+            guard !filename.contains("..") && !filename.contains("/") && filename.hasSuffix(".png") else {
+                respond404(context: context)
+                return
+            }
+            serveStaticFile(context: context, directory: "public/icons", filename: filename, contentType: "image/png")
+
         default:
             respond404(context: context)
         }
+    }
+
+    private func serveStaticFile(context: ChannelHandlerContext, directory: String, filename: String, contentType: String) {
+        let paths = [
+            "./VillageServer/\(directory)/\(filename)",
+            "./\(directory)/\(filename)",
+            "/app/\(directory)/\(filename)",
+        ]
+        for path in paths {
+            if let data = FileManager.default.contents(atPath: path) {
+                var buf = context.channel.allocator.buffer(capacity: data.count)
+                buf.writeBytes(data)
+                let head = HTTPResponseHead(version: .http1_1, status: .ok, headers: [
+                    "Content-Type": contentType,
+                    "Content-Length": "\(buf.readableBytes)",
+                    "Cache-Control": "public, max-age=86400",
+                    "Access-Control-Allow-Origin": "*",
+                ])
+                context.write(wrapOutboundOut(.head(head)), promise: nil)
+                context.write(wrapOutboundOut(.body(.byteBuffer(buf))), promise: nil)
+                context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
+                return
+            }
+        }
+        respond404(context: context)
     }
 
     private func respondCORS(context: ChannelHandlerContext) {
