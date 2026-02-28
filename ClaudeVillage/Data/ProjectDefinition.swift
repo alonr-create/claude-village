@@ -1,6 +1,6 @@
 import AppKit
 
-enum ProjectID: String, CaseIterable, Hashable {
+enum ProjectID: String, CaseIterable, Hashable, Codable {
     case matzpenLeosher     = "matzpen"
     case dekelLeprisha      = "dekel"
     case alonDev            = "alon-dev"

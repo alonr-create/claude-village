@@ -110,12 +110,14 @@ class VillageAudio {
         let lower = text.lowercased()
         if lower.contains("תודה") || lower.contains("טעים") || lower.contains("יאמי")
             || lower.contains("מעולה") || lower.contains("טוב") || lower.contains("וואו")
-            || lower.contains("שף") || lower.contains("עוד") {
+            || lower.contains("שף") || lower.contains("ממממ") || lower.contains("חיים טובים") {
             return "thank"
         }
-        if lower.contains("רעב") || lower.contains("אוכל") || lower.contains("דג")
-            || lower.contains("צמא") || lower.contains("מים") || lower.contains("חטיף")
-            || lower.contains("שרימפס") || lower.contains("אנרגיה") || lower.contains("הפסקת") {
+        if lower.contains("רעב") || lower.contains("אוכל") || lower.contains("דונר")
+            || lower.contains("קבב") || lower.contains("לחמג׳ון") || lower.contains("באקלווה")
+            || lower.contains("מנטי") || lower.contains("פידה") || lower.contains("כופתה")
+            || lower.contains("צ׳אי") || lower.contains("איסקנדר") || lower.contains("צריך")
+            || lower.contains("רוצה") || lower.contains("מגיע") || lower.contains("בבקשה") {
             return "request"
         }
         return "idle"

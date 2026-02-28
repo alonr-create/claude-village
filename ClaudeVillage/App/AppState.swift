@@ -13,9 +13,11 @@ final class AppState: ObservableObject {
     @Published var projectStatuses: [ProjectID: ProjectStatus] = [:]
     @Published var activeTodos: [String: [TodoItem]] = [:]
     @Published var agentAssignments: [AgentID: ProjectID] = [:]
+    @Published var agentStates: [AgentID: AgentState] = [:]
 
     let villageScene: VillageScene
     let webServer = VillageWebServer()
+    let requestSystem = RequestSystem()
 
     init() {
         let scene = VillageScene(size: CGSize(width: 2000, height: 1500))

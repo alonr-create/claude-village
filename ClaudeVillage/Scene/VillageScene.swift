@@ -8,34 +8,35 @@ class VillageScene: SKScene {
     var crabNodes: [AgentID: CrabAgentNode] = [:]
     var pathNodes: [SKShapeNode] = []
     private var dayNightOverlay: SKSpriteNode?
-    private var behaviorManager: AgentBehaviorManager?
-    private var foodNodes: [FoodNode] = []
+    private(set) var behaviorManager: AgentBehaviorManager?
+    var foodNodes: [FoodNode] = []
+    var structureNodes: [SKNode] = []
 
-    // Speech system
+    // Speech system — Turkish food themed!
     private static let thankYouPhrases = [
-        "!תודה אלון! 🥰",
-        "!אוכל! יאמי 😋",
-        "הכי טעים! תודה! 🐟",
-        "אתה הבוס הכי טוב! 💕",
-        "ממממ... מעולה! 😍",
-        "עוד! עוד! 😄",
-        "תודה רבה! 🙏",
-        "!וואו! דג טרי 🐠",
-        "שף מספר 1! 👨‍🍳",
+        "!וואו! דונר! 😍",
+        "!באקלווה! חיים טובים 🍬",
+        "!קבב! הכי טעים 🍖",
+        "!תודה אלון! יאמי 😋",
+        "!מנטי! כמו בטורקיה 🥟",
+        "!אתה הבוס הכי טוב 💕",
+        "!לחמג׳ון! ממממ 🫓",
+        "!פידה חמה! מעולה 🫕",
+        "!שף טורקי מספר 1! 👨‍🍳",
         "!חיים טובים בכפר 🏡",
     ]
 
     private static let requestPhrases = [
-        "אלון... רעב פה... 🥺",
-        "?יש אוכל 🐟",
-        "?מישהו הזמין דג 🍽️",
-        "צמא... צריך מים 💧",
-        "הפסקת אוכל? 😊",
-        "!מגיע לנו חטיף 🦐",
-        "?אלון, דג בבקשה 🙏",
-        "רעבבבב 😩",
-        "!שרימפס! שרימפס 🦐",
-        "...העבודה קשה, צריך אנרגיה ⚡",
+        "!רוצה דונר 🥙",
+        "?יש לחמג׳ון 🫓",
+        "!צריך באקלווה דחוף 🍬",
+        "?אלון, קבב בבקשה 🙏",
+        "רעבבבב... איסקנדר! 😩",
+        "?מישהו הזמין מנטי 🥟",
+        "!מגיע לנו פידה חמה 🫕",
+        "...העבודה קשה, צריך צ׳אי 🫖",
+        "!כופתה! כופתה 🧆",
+        "?אלון... רעב פה 🥺",
     ]
 
     private var didSetup = false
@@ -422,23 +423,29 @@ class VillageScene: SKScene {
         sendNearestCrabToFood(food)
     }
 
-    private func sendNearestCrabToFood(_ food: FoodNode) {
-        // Find closest crab that isn't already going to food
-        var bestCrab: CrabAgentNode?
-        var bestDist: CGFloat = .greatestFiniteMagnitude
+    /// Send a specific crab or the nearest one to eat food
+    func sendNearestCrabToFood(_ food: FoodNode, specificCrab: CrabAgentNode? = nil) {
+        let crab: CrabAgentNode
 
-        for (_, crab) in crabNodes {
-            // Skip crabs already walking to food
-            if crab.action(forKey: "walkToFood") != nil { continue }
+        if let specific = specificCrab {
+            crab = specific
+        } else {
+            // Find closest crab that isn't already going to food
+            var bestCrab: CrabAgentNode?
+            var bestDist: CGFloat = .greatestFiniteMagnitude
 
-            let dist = hypot(crab.position.x - food.position.x, crab.position.y - food.position.y)
-            if dist < bestDist {
-                bestDist = dist
-                bestCrab = crab
+            for (_, c) in crabNodes {
+                if c.action(forKey: "walkToFood") != nil { continue }
+                let dist = hypot(c.position.x - food.position.x, c.position.y - food.position.y)
+                if dist < bestDist {
+                    bestDist = dist
+                    bestCrab = c
+                }
             }
-        }
 
-        guard let crab = bestCrab else { return }
+            guard let found = bestCrab else { return }
+            crab = found
+        }
 
         // Stop current actions and walk to food
         crab.removeAction(forKey: "walking")
@@ -466,11 +473,14 @@ class VillageScene: SKScene {
                 // Happy crab celebration + thank you
                 crab.celebrate()
                 let thanks = VillageScene.thankYouPhrases.randomElement()!
-                // Say thanks after the jump lands
                 crab.run(SKAction.sequence([
                     SKAction.wait(forDuration: 0.5),
                     SKAction.run { crab.say(thanks, duration: 3.0) }
                 ]))
+                // Satisfy hunger in agent state
+                if let agentState = self?.behaviorManager?.agentStates[crab.agent.id] {
+                    agentState.satisfy(\.hunger, by: 0.6)
+                }
                 // Clean up
                 self?.foodNodes.removeAll { $0 === food }
             }
@@ -528,6 +538,78 @@ class VillageScene: SKScene {
     override func magnify(with event: NSEvent) {
         // Trackpad pinch → zoom
         villageCamera.handleMagnify(scale: event.magnification)
+    }
+
+    // MARK: - Request Handling
+
+    /// Called when Alon approves a request from the UI
+    func handleApprovedRequest(_ request: AgentRequest) {
+        guard let crab = crabNodes[request.from] else { return }
+
+        switch request.type {
+        case .food:
+            // Drop food near the requesting agent
+            let foodPos = CGPoint(
+                x: crab.position.x + CGFloat.random(in: -30...30),
+                y: crab.position.y + CGFloat.random(in: 20...40)
+            )
+            dropFood(at: foodPos)
+            behaviorManager?.handleFoodApproval(for: request.from)
+        case .buildPermission:
+            // Extract structure type from message and start building
+            let type = extractBuildType(from: request.message)
+            behaviorManager?.handleBuildApproval(for: request.from, structureType: type)
+            // Actually place a structure near the agent
+            placeStructure(type: type, near: crab.position, builder: request.from)
+        default:
+            // Generic approval — agent celebrates
+            crab.celebrate()
+            crab.run(SKAction.sequence([
+                SKAction.wait(forDuration: 0.5),
+                SKAction.run { crab.say("!תודה אלון! 🎉", duration: 3.0) }
+            ]))
+        }
+    }
+
+    /// Called when Alon denies a request
+    func handleDeniedRequest(_ request: AgentRequest) {
+        guard let crab = crabNodes[request.from] else { return }
+        let sadPhrases = ["😢 חבל...", "בסדר... 😔", "אולי בפעם הבאה 🙏", "הבנתי... 😐"]
+        crab.say(sadPhrases.randomElement()!, duration: 3.0)
+    }
+
+    private func extractBuildType(from message: String) -> String {
+        let types = ["שלט", "ספסל", "גדר", "פנס", "גן פרחים", "גשר", "באר", "דרך", "לוח מודעות", "עמדת בדיקה"]
+        for type in types {
+            if message.contains(type) { return type }
+        }
+        return "מבנה"
+    }
+
+    /// Place a structure in the village (from build approval)
+    private func placeStructure(type: String, near position: CGPoint, builder: AgentID) {
+        let structurePos = CGPoint(
+            x: position.x + CGFloat.random(in: -50...50),
+            y: position.y + CGFloat.random(in: -30...30)
+        )
+
+        let node = StructureNode(type: type, builder: builder)
+        node.position = structurePos
+        node.zPosition = 8
+        addChild(node)
+        structureNodes.append(node)
+
+        // Build animation on the crab
+        if let crab = crabNodes[builder] {
+            crab.startBuildAnimation()
+            crab.run(SKAction.sequence([
+                SKAction.wait(forDuration: 3.0),
+                SKAction.run {
+                    crab.celebrate()
+                    crab.say("!בניתי \(type)! 🔨", duration: 3.0)
+                }
+            ]))
+        }
     }
 
     override func keyDown(with event: NSEvent) {

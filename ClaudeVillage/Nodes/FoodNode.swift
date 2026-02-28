@@ -16,15 +16,32 @@ class FoodNode: SKNode {
         fatalError("init(coder:) not implemented")
     }
 
+    /// Turkish food items — the crabs' favorite cuisine!
+    static let turkishFoods: [(emoji: String, name: String)] = [
+        ("🥙", "דונר"),
+        ("🍖", "איסקנדר"),
+        ("🥟", "מנטי"),
+        ("🫓", "לחמג׳ון"),
+        ("🍢", "שיש קבב"),
+        ("🧆", "כופתה"),
+        ("🫕", "פידה"),
+        ("🍚", "פילאף"),
+        ("🍬", "באקלווה"),
+        ("🫖", "צ׳אי"),
+        ("☕", "קפה טורקי"),
+    ]
+
+    private(set) var foodName: String = ""
+
     private func buildFood() {
-        // Random food type — sea creatures love these
-        let foods = ["🐟", "🦐", "🐠", "🍣", "🦑", "🐡", "🦞"]
-        let chosen = foods.randomElement()!
+        // Random Turkish food — the crabs love it!
+        let chosen = FoodNode.turkishFoods.randomElement()!
+        foodName = chosen.name
 
         // Glow ring (pulsing circle under the food)
-        glowRing = SKShapeNode(circleOfRadius: 12)
-        glowRing.fillColor = NSColor(red: 1.0, green: 0.9, blue: 0.3, alpha: 0.3)
-        glowRing.strokeColor = NSColor(red: 1.0, green: 0.85, blue: 0.2, alpha: 0.6)
+        glowRing = SKShapeNode(circleOfRadius: 14)
+        glowRing.fillColor = NSColor(red: 1.0, green: 0.7, blue: 0.2, alpha: 0.3)
+        glowRing.strokeColor = NSColor(red: 1.0, green: 0.6, blue: 0.1, alpha: 0.6)
         glowRing.lineWidth = 1.5
         glowRing.zPosition = 0
         addChild(glowRing)
@@ -37,19 +54,32 @@ class FoodNode: SKNode {
         glowRing.run(SKAction.repeatForever(pulse))
 
         // Food emoji
-        foodEmoji = SKLabelNode(text: chosen)
-        foodEmoji.fontSize = 18
+        foodEmoji = SKLabelNode(text: chosen.emoji)
+        foodEmoji.fontSize = 20
         foodEmoji.verticalAlignmentMode = .center
         foodEmoji.horizontalAlignmentMode = .center
         foodEmoji.zPosition = 1
         addChild(foodEmoji)
 
-        // Gentle hover
+        // Food name label (small Hebrew text below emoji)
+        let nameLabel = SKLabelNode(text: chosen.name)
+        nameLabel.fontSize = 7
+        nameLabel.fontName = "Arial Hebrew"
+        nameLabel.fontColor = NSColor(red: 1.0, green: 0.95, blue: 0.8, alpha: 0.9)
+        nameLabel.verticalAlignmentMode = .top
+        nameLabel.horizontalAlignmentMode = .center
+        nameLabel.position = CGPoint(x: 0, y: -14)
+        nameLabel.zPosition = 1
+        addChild(nameLabel)
+
+        // Gentle hover (food + label together)
+        let hoverGroup = SKNode()
         let hover = SKAction.sequence([
             SKAction.moveBy(x: 0, y: 3, duration: 1.0),
             SKAction.moveBy(x: 0, y: -3, duration: 1.0),
         ])
         foodEmoji.run(SKAction.repeatForever(hover))
+        nameLabel.run(SKAction.repeatForever(hover))
     }
 
     /// Drop-from-sky animation when food is placed

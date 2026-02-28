@@ -1,6 +1,6 @@
 import AppKit
 
-enum AgentID: String, CaseIterable, Hashable {
+enum AgentID: String, CaseIterable, Hashable, Codable {
     case eyal = "eyal"
     case yael = "yael"
     case ido  = "ido"

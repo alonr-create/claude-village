@@ -41,6 +41,25 @@ struct ContentView: View {
                 }
             }
             .allowsHitTesting(false)
+
+            // Bottom-right: request panel (only when requests exist)
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    RequestPanel(
+                        requestSystem: appState.requestSystem,
+                        onApprove: { request in
+                            appState.villageScene.handleApprovedRequest(request)
+                        },
+                        onDeny: { request in
+                            appState.villageScene.handleDeniedRequest(request)
+                        }
+                    )
+                    .frame(width: 280)
+                    .padding(12)
+                }
+            }
         }
         .background(Color(nsColor: NSColor(red: 0.15, green: 0.25, blue: 0.15, alpha: 1.0)))
     }

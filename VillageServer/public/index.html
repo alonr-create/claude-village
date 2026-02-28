@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a2e1a">
+<title>Claude Village</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #1a2e1a; color: #fff; }
+
+#canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* Status bar */
+#status { position: fixed; top: 0; left: 0; right: 0; padding: 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; font-size: 13px; z-index: 100; }
+#status .title { font-weight: 700; font-size: 15px; }
+#status .info { opacity: 0.7; font-size: 11px; }
+.conn { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; }
+.conn.on { background: #4f4; box-shadow: 0 0 6px #4f4; }
+.conn.off { background: #f44; }
+
+/* Bottom toolbar */
+#toolbar { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom)); background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; gap: 4px; z-index: 100; }
+.tab { flex: 1; text-align: center; padding: 10px 4px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; }
+.tab:hover, .tab.active { background: rgba(255,255,255,0.15); }
+.tab .icon { font-size: 20px; display: block; margin-bottom: 2px; }
+.badge { position: absolute; top: 4px; right: 4px; background: #f44; color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+
+/* Panels */
+.panel { position: fixed; bottom: 68px; left: 8px; right: 8px; max-height: 50vh; overflow-y: auto; background: rgba(20,30,20,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 16px; padding: 16px; z-index: 99; display: none; border: 1px solid rgba(255,255,255,0.1); }
+.panel.show { display: block; animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Agent card */
+.agent-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+.agent-card:hover { background: rgba(255,255,255,0.08); }
+.agent-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
+.agent-info { flex: 1; }
+.agent-name { font-weight: 600; font-size: 14px; }
+.agent-role { font-size: 11px; opacity: 0.6; }
+.agent-mood { font-size: 12px; opacity: 0.8; }
+.agent-needs { display: flex; gap: 4px; margin-top: 4px; }
+.need-bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.need-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+/* Food grid */
+.food-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.food-btn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 4px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 24px; }
+.food-btn:hover, .food-btn.selected { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); transform: scale(1.05); }
+.food-name { font-size: 10px; margin-top: 4px; opacity: 0.7; }
+.food-hint { text-align: center; font-size: 12px; opacity: 0.5; margin-top: 12px; }
+
+/* Request card */
+.req-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.req-from { font-weight: 600; font-size: 13px; }
+.req-msg { font-size: 12px; opacity: 0.8; margin: 6px 0; }
+.req-actions { display: flex; gap: 8px; }
+.req-btn { flex: 1; padding: 8px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.req-approve { background: #2d8a4e; color: #fff; }
+.req-deny { background: #8a2d2d; color: #fff; }
+.req-btn:active { transform: scale(0.95); }
+
+/* Event log */
+.event { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; opacity: 0.8; }
+.event:last-child { border: none; }
+.event-time { font-size: 10px; opacity: 0.5; }
+
+.panel-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.empty-msg { text-align: center; padding: 24px; opacity: 0.4; font-size: 13px; }
+
+/* Food drop mode overlay */
+#food-mode { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 12px 24px; border-radius: 20px; font-size: 14px; font-weight: 600; z-index: 101; display: none; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="status">
+    <div>
+        <span class="title">Claude Village 🏘️</span>
+        <span class="conn" id="conn"></span>
+    </div>
+    <div class="info">
+        <span id="tick-info">Tick: 0</span> &middot;
+        <span id="period-info">day</span>
+    </div>
+</div>
+
+<div id="food-mode">🥙 לחץ על המפה להזריק אוכל</div>
+
+<div id="panel-agents" class="panel">
+    <div class="panel-title">🦀 סוכנים</div>
+    <div id="agents-list"></div>
+</div>
+
+<div id="panel-food" class="panel">
+    <div class="panel-title">🥙 אוכל טורקי</div>
+    <div class="food-grid" id="food-grid"></div>
+    <div class="food-hint">בחר אוכל ולחץ על המפה</div>
+</div>
+
+<div id="panel-requests" class="panel">
+    <div class="panel-title">📋 בקשות</div>
+    <div id="requests-list"></div>
+</div>
+
+<div id="panel-events" class="panel">
+    <div class="panel-title">📜 אירועים</div>
+    <div id="events-list"></div>
+</div>
+
+<div id="toolbar">
+    <div class="tab" data-panel="agents"><span class="icon">🦀</span>סוכנים</div>
+    <div class="tab" data-panel="food"><span class="icon">🥙</span>אוכל</div>
+    <div class="tab" data-panel="requests"><span class="icon">📋</span>בקשות<span class="badge" id="req-badge" style="display:none">0</span></div>
+    <div class="tab" data-panel="events"><span class="icon">📜</span>אירועים</div>
+</div>
+
+<script>
+// ========== STATE ==========
+let snapshot = null;
+let ws = null;
+let connected = false;
+
+// Camera
+let camX = 0, camY = 0, camZoom = 1;
+let dragging = false, dragStartX = 0, dragStartY = 0, camStartX = 0, camStartY = 0;
+let pinchStartDist = 0, pinchStartZoom = 1;
+
+// Food dropping
+let foodMode = false;
+let selectedFood = null;
+
+// Turkish foods
+const FOODS = [
+    {emoji:"🥙", name:"דונר"}, {emoji:"🍖", name:"איסקנדר"}, {emoji:"🥟", name:"מנטי"},
+    {emoji:"🫓", name:"לחמג׳ון"}, {emoji:"🍢", name:"שיש קבב"}, {emoji:"🧆", name:"כופתה"},
+    {emoji:"🫕", name:"פידה"}, {emoji:"🍚", name:"פילאף"}, {emoji:"🍬", name:"באקלווה"},
+    {emoji:"🫖", name:"צ׳אי"}, {emoji:"☕", name:"קפה טורקי"}
+];
+
+const AGENT_COLORS = { eyal: "#3366EE", yael: "#E55AA0", ido: "#33BB44", roni: "#FF8811" };
+const NEED_COLORS = { hunger: "#ff6b6b", social: "#4ecdc4", creativity: "#a855f7", workDrive: "#f59e0b", rest: "#60a5fa" };
+
+// ========== CANVAS ==========
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height = window.innerHeight * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ========== DRAWING ==========
+function draw() {
+    const W = canvas.width / devicePixelRatio;
+    const H = canvas.height / devicePixelRatio;
+
+    // Background based on day period
+    let bgColor = '#2a4a2a';
+    if (snapshot) {
+        switch (snapshot.dayPeriod) {
+            case 'morning': bgColor = '#3a5a3a'; break;
+            case 'day': bgColor = '#2a4a2a'; break;
+            case 'evening': bgColor = '#2a3040'; break;
+            case 'night': bgColor = '#151e25'; break;
+        }
+    }
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(W / 2 + camX, H / 2 - camY);
+    ctx.scale(camZoom, camZoom);
+
+    if (snapshot) {
+        drawGround();
+        drawHouses(snapshot.houses);
+        drawStructures(snapshot.structures);
+        drawFoods(snapshot.foods);
+        drawAgents(snapshot.agents);
+    }
+
+    // Food mode crosshair
+    if (foodMode) {
+        ctx.strokeStyle = 'rgba(255,200,50,0.5)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0);
+        ctx.moveTo(0, -1000); ctx.lineTo(0, 1000);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+}
+
+function drawGround() {
+    // Grass texture
+    ctx.fillStyle = 'rgba(50,100,50,0.3)';
+    for (let x = -500; x < 500; x += 40) {
+        for (let y = -500; y < 500; y += 40) {
+            ctx.fillRect(x, -y, 2, 8);
+            ctx.fillRect(x + 20, -y + 15, 2, 6);
+        }
+    }
+
+    // Paths (light brown roads)
+    ctx.fillStyle = 'rgba(160,130,90,0.4)';
+    ctx.fillRect(-500, -8, 1000, 16);
+    ctx.fillRect(-8, -500, 16, 1000);
+
+    // Center fountain
+    ctx.beginPath();
+    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(60,140,200,0.4)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100,160,220,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Fountain center
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(80,80,80,0.6)';
+    ctx.fill();
+}
+
+function drawHouses(houses) {
+    for (const h of houses) {
+        const x = h.position.x;
+        const y = -h.position.y; // flip Y
+
+        // House shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(x - 38, y + 4, 76, 56);
+
+        // Walls
+        ctx.fillStyle = h.wallColor;
+        ctx.fillRect(x - 35, y, 70, 50);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 35, y, 70, 50);
+
+        // Roof
+        ctx.fillStyle = h.roofColor;
+        ctx.beginPath();
+        ctx.moveTo(x - 42, y);
+        ctx.lineTo(x, y - 25);
+        ctx.lineTo(x + 42, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Door
+        ctx.fillStyle = 'rgba(100,70,40,0.8)';
+        ctx.fillRect(x - 8, y + 25, 16, 25);
+
+        // Window
+        ctx.fillStyle = h.isActive ? 'rgba(255,230,100,0.7)' : 'rgba(150,180,220,0.3)';
+        ctx.fillRect(x - 25, y + 10, 12, 12);
+        ctx.fillRect(x + 13, y + 10, 12, 12);
+
+        // Emoji
+        ctx.font = '20px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.emoji, x, y - 30);
+
+        // Name
+        ctx.font = '10px -apple-system, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.name, x, y + 64);
+    }
+}
+
+function drawStructures(structures) {
+    const STRUCT_EMOJIS = {
+        'שלט': '🪧', 'ספסל': '🪑', 'גן פרחים': '🌸', 'פנס': '🏮',
+        'גדר': '🏗️', 'גדר דקורטיבית': '🎋', 'גשר': '🌉', 'באר': '⛲',
+        'דרך': '🛤️', 'לוח מודעות': '📌', 'עמדת בדיקה': '🔍', 'ספסל תצפית': '🪑',
+        'מבנה': '🏠'
+    };
+    for (const s of structures) {
+        const x = s.position.x;
+        const y = -s.position.y;
+        const emoji = STRUCT_EMOJIS[s.type] || '🏠';
+
+        ctx.font = '18px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(emoji, x, y);
+
+        ctx.font = '8px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(s.type, x, y + 14);
+    }
+}
+
+function drawFoods(foods) {
+    for (const f of foods) {
+        const x = f.position.x;
+        const y = -f.position.y;
+
+        // Glow
+        if (!f.isBeingEaten) {
+            ctx.beginPath();
+            ctx.arc(x, y, 12, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,50,0.15)';
+            ctx.fill();
+        }
+
+        ctx.font = f.isBeingEaten ? '14px serif' : '20px serif';
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = f.isBeingEaten ? 0.4 : 1;
+        ctx.fillText(f.emoji, x, y + 6);
+        ctx.globalAlpha = 1;
+
+        ctx.font = '7px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.fillText(f.name, x, y + 18);
+    }
+}
+
+function drawAgents(agents) {
+    for (const a of agents) {
+        const x = a.position.x;
+        const y = -a.position.y;
+        const color = a.badgeColor;
+
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y + 14, 12, 4, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fill();
+
+        // Body (crab-like oval)
+        ctx.beginPath();
+        ctx.ellipse(x, y, 14, 10, 0, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x - 4, y - 8, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 4, y - 8, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(x - 4, y - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 4, y - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+
+        // Claws
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x - 14, y - 2); ctx.lineTo(x - 20, y - 8); ctx.lineTo(x - 16, y - 4); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + 14, y - 2); ctx.lineTo(x + 20, y - 8); ctx.lineTo(x + 16, y - 4); ctx.stroke();
+
+        // Legs
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+            const ly = y - 4 + i * 5;
+            ctx.beginPath(); ctx.moveTo(x - 13, ly); ctx.lineTo(x - 19, ly + 3); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x + 13, ly); ctx.lineTo(x + 19, ly + 3); ctx.stroke();
+        }
+
+        // Name
+        const nameW = ctx.measureText(a.name).width + 8;
+        ctx.fillStyle = color + '99';
+        roundRect(ctx, x - nameW / 2, y + 12, nameW, 14, 4);
+        ctx.fill();
+        ctx.font = '9px -apple-system, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(a.name, x, y + 23);
+
+        // Mood emoji
+        ctx.font = '12px serif';
+        ctx.fillText(a.moodEmoji, x + 18, y - 10);
+
+        // State indicator
+        if (a.state === 'work' || a.state === 'working') {
+            drawStateIcon(x, y - 18, '💻');
+        } else if (a.state === 'build' || a.state === 'building') {
+            drawStateIcon(x, y - 18, '🔨');
+        } else if (a.state === 'eat' || a.state === 'eating') {
+            drawStateIcon(x, y - 18, '🍽️');
+        } else if (a.state === 'rest' || a.state === 'resting') {
+            drawStateIcon(x, y - 18, '💤');
+        } else if (a.state === 'socialize' || a.state === 'talking') {
+            drawStateIcon(x, y - 18, '💬');
+        }
+
+        // Speech bubble
+        if (a.currentSpeech) {
+            drawSpeechBubble(x, y - 30, a.currentSpeech);
+        }
+    }
+}
+
+function drawStateIcon(x, y, emoji) {
+    ctx.font = '10px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(emoji, x, y);
+}
+
+function drawSpeechBubble(x, y, text) {
+    ctx.font = '10px -apple-system, sans-serif';
+    const metrics = ctx.measureText(text);
+    const w = Math.min(metrics.width + 16, 160);
+    const h = 22;
+
+    // Bubble background
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    roundRect(ctx, x - w / 2, y - h - 6, w, h, 8);
+    ctx.fill();
+
+    // Pointer
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y - 6);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + 4, y - 6);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = '#222';
+    ctx.textAlign = 'center';
+    ctx.fillText(text.length > 25 ? text.substring(0, 25) + '...' : text, x, y - h + 8);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// ========== CAMERA CONTROLS ==========
+
+// Mouse drag
+canvas.addEventListener('mousedown', e => {
+    if (foodMode) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    camStartX = camX;
+    camStartY = camY;
+});
+canvas.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    camX = camStartX + (e.clientX - dragStartX);
+    camY = camStartY - (e.clientY - dragStartY);
+});
+canvas.addEventListener('mouseup', () => { dragging = false; });
+
+// Mouse wheel zoom
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    camZoom = Math.max(0.3, Math.min(3, camZoom * delta));
+}, { passive: false });
+
+// Touch pan & pinch zoom
+let touches = [];
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    touches = Array.from(e.touches);
+    if (touches.length === 1) {
+        dragging = true;
+        dragStartX = touches[0].clientX;
+        dragStartY = touches[0].clientY;
+        camStartX = camX;
+        camStartY = camY;
+    } else if (touches.length === 2) {
+        dragging = false;
+        pinchStartDist = Math.hypot(touches[1].clientX - touches[0].clientX, touches[1].clientY - touches[0].clientY);
+        pinchStartZoom = camZoom;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const ts = Array.from(e.touches);
+    if (ts.length === 1 && dragging) {
+        camX = camStartX + (ts[0].clientX - dragStartX);
+        camY = camStartY - (ts[0].clientY - dragStartY);
+    } else if (ts.length === 2) {
+        const dist = Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY);
+        camZoom = Math.max(0.3, Math.min(3, pinchStartZoom * (dist / pinchStartDist)));
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    dragging = false;
+    if (e.touches.length === 0 && foodMode && touches.length === 1) {
+        // Single tap in food mode → drop food
+        const t = touches[0];
+        dropFoodAt(t.clientX, t.clientY);
+    }
+    touches = Array.from(e.touches);
+}, { passive: false });
+
+// Click to drop food (mouse)
+canvas.addEventListener('click', e => {
+    if (!foodMode) return;
+    dropFoodAt(e.clientX, e.clientY);
+});
+
+function dropFoodAt(screenX, screenY) {
+    const W = canvas.width / devicePixelRatio;
+    const H = canvas.height / devicePixelRatio;
+    const worldX = (screenX - W / 2 - camX) / camZoom;
+    const worldY = -(screenY - H / 2 + camY) / camZoom;
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'food', x: worldX, y: worldY }));
+    } else {
+        fetch('/api/food', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: worldX, y: worldY })
+        });
+    }
+
+    foodMode = false;
+    selectedFood = null;
+    document.getElementById('food-mode').style.display = 'none';
+    document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
+}
+
+// ========== PANELS ==========
+
+let activePanel = null;
+
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const panel = tab.dataset.panel;
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+        if (activePanel === panel) {
+            activePanel = null;
+            return;
+        }
+
+        activePanel = panel;
+        tab.classList.add('active');
+        document.getElementById('panel-' + panel).classList.add('show');
+    });
+});
+
+// Build food grid
+const foodGrid = document.getElementById('food-grid');
+FOODS.forEach(f => {
+    const btn = document.createElement('div');
+    btn.className = 'food-btn';
+    btn.innerHTML = `${f.emoji}<div class="food-name">${f.name}</div>`;
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedFood = f;
+        foodMode = true;
+        document.getElementById('food-mode').style.display = 'block';
+        // Close panel
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        activePanel = null;
+    });
+    foodGrid.appendChild(btn);
+});
+
+function updateAgentsPanel(agents) {
+    const list = document.getElementById('agents-list');
+    if (!agents) return;
+    list.innerHTML = agents.map(a => {
+        const needs = a.needs || {};
+        const needBars = Object.entries(needs).map(([k, v]) => {
+            const color = NEED_COLORS[k] || '#888';
+            return `<div class="need-bar" title="${k}: ${Math.round(v*100)}%"><div class="need-fill" style="width:${v*100}%;background:${color}"></div></div>`;
+        }).join('');
+        return `
+        <div class="agent-card" onclick="focusAgent('${a.id}')">
+            <div class="agent-dot" style="background:${a.badgeColor}">${a.name.charAt(0)}</div>
+            <div class="agent-info">
+                <div class="agent-name">${a.name} ${a.moodEmoji}</div>
+                <div class="agent-role">${a.role} · ${a.currentGoal}</div>
+                <div class="agent-needs">${needBars}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function focusAgent(id) {
+    if (!snapshot) return;
+    const agent = snapshot.agents.find(a => a.id === id);
+    if (agent) {
+        camX = -agent.position.x * camZoom;
+        camY = agent.position.y * camZoom;
+        camZoom = 1.5;
+    }
+}
+
+function updateRequestsPanel(requests) {
+    const list = document.getElementById('requests-list');
+    const badge = document.getElementById('req-badge');
+
+    if (!requests || requests.length === 0) {
+        list.innerHTML = '<div class="empty-msg">אין בקשות ממתינות 🎉</div>';
+        badge.style.display = 'none';
+        return;
+    }
+
+    badge.style.display = 'flex';
+    badge.textContent = requests.length;
+
+    list.innerHTML = requests.map(r => `
+        <div class="req-card">
+            <div class="req-from">${r.fromName} · ${typeEmoji(r.type)}</div>
+            <div class="req-msg">${r.message}</div>
+            <div class="req-actions">
+                <button class="req-btn req-approve" onclick="approveReq('${r.id}')">✅ אישור</button>
+                <button class="req-btn req-deny" onclick="denyReq('${r.id}')">❌ דחייה</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function typeEmoji(type) {
+    return { food: '🥙', buildPermission: '🔨', tool: '🔧', vacation: '🏖️', raise: '💰', general: '📋' }[type] || '📋';
+}
+
+function approveReq(id) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'approve', id }));
+    } else {
+        fetch(`/api/requests/${id}/approve`, { method: 'POST' });
+    }
+}
+
+function denyReq(id) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'deny', id }));
+    } else {
+        fetch(`/api/requests/${id}/deny`, { method: 'POST' });
+    }
+}
+
+function updateEventsPanel(events) {
+    const list = document.getElementById('events-list');
+    if (!events || events.length === 0) {
+        list.innerHTML = '<div class="empty-msg">אין אירועים עדיין</div>';
+        return;
+    }
+    list.innerHTML = events.slice().reverse().map(e => {
+        const time = new Date(e.timestamp * 1000).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        return `<div class="event"><span class="event-time">${time}</span> ${e.message}</div>`;
+    }).join('');
+}
+
+// ========== WEBSOCKET ==========
+
+function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+    ws.onopen = () => {
+        connected = true;
+        document.getElementById('conn').className = 'conn on';
+        console.log('WebSocket connected');
+    };
+
+    ws.onmessage = (e) => {
+        try {
+            snapshot = JSON.parse(e.data);
+            updateUI();
+        } catch (err) {
+            console.error('Parse error:', err);
+        }
+    };
+
+    ws.onclose = () => {
+        connected = false;
+        document.getElementById('conn').className = 'conn off';
+        console.log('WebSocket disconnected, reconnecting in 3s...');
+        setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = () => {
+        ws.close();
+    };
+}
+
+function updateUI() {
+    if (!snapshot) return;
+    document.getElementById('tick-info').textContent = `Tick: ${snapshot.tick}`;
+    document.getElementById('period-info').textContent = {morning:'🌅 בוקר', day:'☀️ יום', evening:'🌆 ערב', night:'🌙 לילה'}[snapshot.dayPeriod] || snapshot.dayPeriod;
+
+    updateAgentsPanel(snapshot.agents);
+    updateRequestsPanel(snapshot.pendingRequests);
+    updateEventsPanel(snapshot.recentEvents);
+}
+
+// ========== INIT ==========
+
+// Initial fetch
+fetch('/api/snapshot')
+    .then(r => r.json())
+    .then(data => { snapshot = data; updateUI(); })
+    .catch(() => {});
+
+connectWS();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

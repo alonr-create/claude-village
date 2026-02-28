@@ -244,6 +244,53 @@ class CrabAgentNode: SKNode {
         bodyNode.run(SKAction.repeatForever(focus), withKey: "work_bob")
     }
 
+    func startBuildAnimation() {
+        stopAllAnimations()
+
+        // Alternating claw hammering motion
+        let leftHammer = SKAction.sequence([
+            SKAction.rotate(byAngle: 0.4, duration: 0.15),
+            SKAction.rotate(byAngle: -0.4, duration: 0.15),
+        ])
+        let rightHammer = SKAction.sequence([
+            SKAction.wait(forDuration: 0.15),
+            SKAction.rotate(byAngle: -0.4, duration: 0.15),
+            SKAction.rotate(byAngle: 0.4, duration: 0.15),
+        ])
+        leftClaw.run(SKAction.repeatForever(leftHammer), withKey: "build_claw")
+        rightClaw.run(SKAction.repeatForever(rightHammer), withKey: "build_claw")
+
+        // Body rocks side to side (hammering motion)
+        let rock = SKAction.sequence([
+            SKAction.rotate(byAngle: 0.08, duration: 0.2),
+            SKAction.rotate(byAngle: -0.16, duration: 0.4),
+            SKAction.rotate(byAngle: 0.08, duration: 0.2),
+        ])
+        bodyNode.run(SKAction.repeatForever(rock), withKey: "build_rock")
+
+        // Dust/spark particles
+        let particleLoop = SKAction.sequence([
+            SKAction.run { [weak self] in
+                guard let self = self else { return }
+                let dust = SKShapeNode(circleOfRadius: 1.5)
+                dust.fillColor = NSColor(red: 0.7, green: 0.6, blue: 0.4, alpha: 0.7)
+                dust.strokeColor = .clear
+                dust.position = CGPoint(x: CGFloat.random(in: -8...8), y: -8)
+                dust.zPosition = 0
+                self.addChild(dust)
+                dust.run(SKAction.sequence([
+                    SKAction.group([
+                        SKAction.moveBy(x: CGFloat.random(in: -10...10), y: CGFloat.random(in: 5...15), duration: 0.5),
+                        SKAction.fadeOut(withDuration: 0.5),
+                    ]),
+                    SKAction.removeFromParent()
+                ]))
+            },
+            SKAction.wait(forDuration: 0.25),
+        ])
+        run(SKAction.repeatForever(particleLoop), withKey: "building")
+    }
+
     func celebrate() {
         stopAllAnimations()
 

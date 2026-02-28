@@ -1,0 +1,8 @@
+.build/
+.git/
+ClaudeVillage/
+ClaudeVillage.app/
+Resources/
+*.mp3
+.swiftpm/
+.DS_Store
