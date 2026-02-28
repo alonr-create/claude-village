@@ -12,22 +12,35 @@ final class TTSCache: @unchecked Sendable {
     var inFlight: Set<String> = []  // dedup concurrent requests
 
     // ElevenLabs voice IDs per agent
-    // Using multilingual pre-made voices that support Hebrew
+    // Using voices with eleven_v3 model (best Hebrew support)
     let voiceMap: [String: String] = [
-        "אייל": "onwK4e9ZLuTAKqWW03F9",  // Daniel — mature male
-        "עידו": "pNInz6obpgDQGcFmaJgB",  // Adam — young male
-        "יעל": "EXAVITQu4vr4xnSDxMaL",   // Sarah — warm female
-        "רוני": "21m00Tcm4TlvDq8ikWAM",   // Rachel — energetic female
+        "אייל": "onwK4e9ZLuTAKqWW03F9",  // Daniel — steady, mature male (product manager)
+        "עידו": "pNInz6obpgDQGcFmaJgB",  // Adam — firm, direct male (backend dev)
+        "יעל": "pFZP5JQG7iQjIQuC4Bku",   // Lily — velvety, artistic female (designer)
+        "רוני": "FGY2WhTYpPnrIDTdsKH5",   // Laura — sassy, quirky female (QA tester)
     ]
 
     init(dataDir: String, apiKey: String) {
         self.cacheDir = dataDir + "/tts_cache"
         self.apiKey = apiKey
-        // Create cache dir
         let fm = FileManager.default
+
+        // v3.0 migration: clear old cache (generated with eleven_multilingual_v2)
+        // The marker file indicates cache was generated with eleven_v3
+        let markerPath = dataDir + "/tts_v3_marker"
+        if fm.fileExists(atPath: cacheDir) && !fm.fileExists(atPath: markerPath) {
+            print("TTS: Clearing old cache (migrating to eleven_v3 model)...")
+            try? fm.removeItem(atPath: cacheDir)
+        }
+
+        // Create cache dir
         if !fm.fileExists(atPath: cacheDir) {
             try? fm.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
         }
+
+        // Write v3 marker
+        fm.createFile(atPath: markerPath, contents: "eleven_v3".data(using: .utf8))
+
         print("TTS cache directory: \(cacheDir)")
     }
 
@@ -100,7 +113,7 @@ final class TTSCache: @unchecked Sendable {
 
         let body: [String: Any] = [
             "text": cleanText,
-            "model_id": "eleven_multilingual_v2",
+            "model_id": "eleven_v3",
             "voice_settings": [
                 "stability": 0.5,
                 "similarity_boost": 0.75,
