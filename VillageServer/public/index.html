@@ -138,6 +138,7 @@ let ws = null;
 let connected = false;
 let lastSnapshotTime = 0;
 let wsMessageCount = 0;
+let snapshotCount = 0;
 
 // Interpolated agent positions (smooth movement)
 const agentPositions = {};  // id → {x, y, targetX, targetY}
@@ -263,7 +264,7 @@ function draw() {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`ws:${wsMessageCount} agents:${snapshot ? snapshot.agents.length : 0} zoom:${camZoom.toFixed(1)}`, 8, H - 8);
+    ctx.fillText(`snap:${snapshotCount} poll:${pollingActive?'on':'off'} agents:${snapshot ? snapshot.agents.length : 0} zoom:${camZoom.toFixed(1)}`, 8, H - 8);
 
     requestAnimationFrame(draw);
 }
@@ -887,10 +888,15 @@ function connectWS() {
 
     ws.onmessage = (e) => {
         try {
+            const data = JSON.parse(e.data);
+            // Ignore control frames (pong, etc)
+            if (data.action) return;
+            // Only accept real snapshots (must have agents array)
+            if (!data.agents) return;
             prevSnapshot = snapshot;
-            snapshot = JSON.parse(e.data);
+            snapshot = data;
             lastSnapshotTime = Date.now();
-            wsMessageCount++;
+            snapshotCount++;
             updateAgentInterpolation();
             updateUI();
             // WS is working — stop polling if active
@@ -915,13 +921,13 @@ function connectWS() {
     ws.onerror = () => { ws.close(); };
 }
 
-// Fallback: if WS is silent after 6 seconds, poll via HTTP
+// Fallback: if no real snapshots after 8 seconds, poll via HTTP
 function checkWSAndFallback() {
     setTimeout(() => {
-        if (wsMessageCount === 0 && !pollingActive) {
+        if (snapshotCount === 0 && !pollingActive) {
             startPolling();
         }
-    }, 6000);
+    }, 8000);
 }
 
 function startPolling() {
@@ -931,10 +937,11 @@ function startPolling() {
     pollingInterval = setInterval(async () => {
         try {
             const data = await fetch('/api/snapshot').then(r => r.json());
+            if (!data.agents) return;  // safety check
             prevSnapshot = snapshot;
             snapshot = data;
             lastSnapshotTime = Date.now();
-            wsMessageCount++;
+            snapshotCount++;
             updateAgentInterpolation();
             updateUI();
         } catch (e) {
