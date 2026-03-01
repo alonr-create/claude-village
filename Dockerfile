@@ -4,6 +4,8 @@ WORKDIR /app/web-viewer
 COPY web-viewer/package.json web-viewer/package-lock.json ./
 RUN npm ci
 COPY web-viewer/ ./
+# Copy source pixel art assets into Vite's public/ dir (gitignored but needed for build)
+RUN cp -r assets/ public/assets/
 RUN npm run build
 
 # Stage 1: Build Swift server
