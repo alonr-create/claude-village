@@ -3,6 +3,8 @@ import { POLL_INTERVAL } from '../config/constants';
 
 export class NetworkManager {
   onSnapshot: ((snap: SimulationSnapshot) => void) | null = null;
+  onReturnSummary: ((summary: string) => void) | null = null;
+  onReconnecting: ((seconds: number) => void) | null = null;
   lastDayPeriod: string = 'day';
   connected = false;
 
@@ -12,6 +14,11 @@ export class NetworkManager {
   private ws: WebSocket | null = null;
   private wsPingInterval: ReturnType<typeof setInterval> | null = null;
   private lastTick = 0;
+
+  // Exponential backoff
+  private wsReconnectDelay = 1000;
+  private readonly WS_MAX_DELAY = 30000;
+  private wsReconnectAttempt = 0;
 
   start() {
     this.startPolling();
@@ -51,6 +58,11 @@ export class NetworkManager {
       this.ws = new WebSocket(proto + '//' + location.host + '/ws');
 
       this.ws.onopen = () => {
+        // Reset backoff on successful connection
+        this.wsReconnectDelay = 1000;
+        this.wsReconnectAttempt = 0;
+        this.connected = true;
+
         if (this.wsPingInterval) clearInterval(this.wsPingInterval);
         this.wsPingInterval = setInterval(() => {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -68,15 +80,29 @@ export class NetworkManager {
           this.lastDayPeriod = data.dayPeriod;
           this.lastTick = data.tick;
           this.onSnapshot?.(data);
-        } catch { /* ignore parse errors */ }
+        } catch {
+          console.warn('[WS] Failed to parse message');
+        }
       };
 
       this.ws.onclose = () => {
         if (this.wsPingInterval) clearInterval(this.wsPingInterval);
-        setTimeout(() => this.connectWebSocket(), 5000);
+        this.connected = false;
+
+        // Exponential backoff with jitter
+        const delay = Math.min(
+          this.wsReconnectDelay * Math.pow(1.5, this.wsReconnectAttempt),
+          this.WS_MAX_DELAY,
+        ) + Math.random() * 1000;
+
+        this.wsReconnectAttempt++;
+        this.onReconnecting?.(Math.round(delay / 1000));
+
+        setTimeout(() => this.connectWebSocket(), delay);
       };
 
       this.ws.onerror = () => {
+        if (this.wsPingInterval) clearInterval(this.wsPingInterval);
         try { this.ws?.close(); } catch { /* ignore */ }
       };
     } catch {
@@ -114,13 +140,10 @@ export class NetworkManager {
       });
       const data = await resp.json();
       if (data.summary) {
-        // Emit toast event
         this.onReturnSummary?.(data.summary);
       }
     } catch { /* ignore */ }
   }
-
-  onReturnSummary: ((summary: string) => void) | null = null;
 
   destroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);

@@ -8,7 +8,7 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'game-container',
   width: window.innerWidth,
   height: window.innerHeight,
-  backgroundColor: '#1a2e1a',
+  backgroundColor: '#87CEEB',
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -23,9 +23,9 @@ const config: Phaser.Types.Core.GameConfig = {
     },
   },
   render: {
-    pixelArt: true,
-    antialias: false,
-    roundPixels: true,
+    pixelArt: false,
+    antialias: true,
+    roundPixels: false,
   },
   fps: {
     target: 60,

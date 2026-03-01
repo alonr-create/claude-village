@@ -3,13 +3,11 @@ import { SimulationSnapshot, AgentSnapshot, RequestSnapshot } from '../types/sna
 import { FOODS, ICON_FALLBACK, NEED_META, STATE_LABELS, PERIOD_LABELS, NEED_COLORS_HEX } from '../config/constants';
 import { VillageScene } from './VillageScene';
 
+/**
+ * HUD rendered directly on document.body (NOT via Phaser DOM) to avoid
+ * `position: fixed` being broken by Phaser's transform container.
+ */
 export class HUDScene extends Phaser.Scene {
-  private statusBar!: Phaser.GameObjects.DOMElement;
-  private toolbar!: Phaser.GameObjects.DOMElement;
-  private panel!: Phaser.GameObjects.DOMElement;
-  private toastEl!: Phaser.GameObjects.DOMElement;
-  private foodModeOverlay!: Phaser.GameObjects.DOMElement;
-
   private activePanel: string | null = null;
   private snapshot: SimulationSnapshot | null = null;
   private lastUIUpdate = 0;
@@ -19,98 +17,8 @@ export class HUDScene extends Phaser.Scene {
   }
 
   create() {
-    // Status bar (top)
-    this.statusBar = this.add.dom(0, 0).createFromHTML(`
-      <div id="hud-status" style="
-        position: fixed; top: 0; left: 0; right: 0;
-        padding: 8px 16px; padding-top: max(8px, env(safe-area-inset-top));
-        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        display: flex; justify-content: space-between; align-items: center;
-        font-size: 13px; z-index: 100; color: #fff;
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
-        direction: rtl;
-      ">
-        <div>
-          <span style="font-weight:700;font-size:15px">Claude Village v4.0</span>
-          <span id="hud-conn" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:#f44"></span>
-        </div>
-        <div style="opacity:0.7;font-size:11px;display:flex;align-items:center;gap:6px">
-          <span id="hud-tick">Tick: 0</span>
-          <span>&middot;</span>
-          <span id="hud-period">יום</span>
-          <span>&middot;</span>
-          <span id="hud-sound-btn" style="cursor:pointer">🔇</span>
-        </div>
-      </div>
-    `);
-    this.statusBar.setScrollFactor(0);
-
-    // Food mode overlay
-    this.foodModeOverlay = this.add.dom(0, 0).createFromHTML(`
-      <div id="hud-food-mode" style="
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        background: rgba(212,175,55,0.9); color: #000; padding: 14px 28px;
-        border-radius: 24px; font-size: 16px; font-weight: 700; z-index: 101;
-        display: none; pointer-events: none; direction: rtl;
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
-        animation: pulse 1.5s ease-in-out infinite;
-      ">🥙 לחץ על המפה להזריק אוכל!</div>
-      <style>@keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }</style>
-    `);
-    this.foodModeOverlay.setScrollFactor(0);
-
-    // Toast notification
-    this.toastEl = this.add.dom(0, 0).createFromHTML(`
-      <div id="hud-toast" style="
-        position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
-        background: rgba(45,138,78,0.95); color: #fff; padding: 10px 20px;
-        border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 200;
-        display: none; pointer-events: none; direction: rtl;
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
-      "></div>
-    `);
-    this.toastEl.setScrollFactor(0);
-
-    // Panel (content changes based on active tab)
-    this.panel = this.add.dom(0, 0).createFromHTML(`
-      <div id="hud-panel" style="
-        position: fixed; bottom: 68px; left: 8px; right: 8px; max-height: 50vh;
-        overflow-y: auto; background: rgba(20,30,20,0.92);
-        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-        border-radius: 16px; padding: 16px; z-index: 99;
-        display: none; border: 1px solid rgba(255,255,255,0.1);
-        color: #fff; direction: rtl;
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
-      "></div>
-    `);
-    this.panel.setScrollFactor(0);
-
-    // Bottom toolbar
-    this.toolbar = this.add.dom(0, 0).createFromHTML(`
-      <div id="hud-toolbar" style="
-        position: fixed; bottom: 0; left: 0; right: 0;
-        padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom));
-        background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-        display: flex; gap: 4px; z-index: 100;
-        font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
-        direction: rtl;
-      ">
-        <div class="hud-tab" data-panel="agents" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none">
-          <div style="font-size:20px">🦀</div>סוכנים
-        </div>
-        <div class="hud-tab" data-panel="food" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none">
-          <div style="font-size:20px">🥙</div>אוכל
-        </div>
-        <div class="hud-tab" data-panel="requests" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none;position:relative">
-          <div style="font-size:20px">📋</div>בקשות
-          <span id="hud-req-badge" style="position:absolute;top:4px;right:4px;background:#f44;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px"></span>
-        </div>
-        <div class="hud-tab" data-panel="events" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none">
-          <div style="font-size:20px">📜</div>אירועים
-        </div>
-      </div>
-    `);
-    this.toolbar.setScrollFactor(0);
+    // Inject all HUD HTML directly into document.body
+    this.injectHUD();
 
     // Event listeners
     this.setupEventListeners();
@@ -130,10 +38,119 @@ export class HUDScene extends Phaser.Scene {
       const el = document.getElementById('hud-food-mode');
       if (el) el.style.display = active ? 'block' : 'none';
     });
+
+    villageScene.events.on('returnSummary', (summary: string) => {
+      this.showReturnPanel(summary);
+    });
+
+    villageScene.events.on('reconnecting', (seconds: number) => {
+      this.showToast(`מתחבר מחדש... (${seconds}s)`);
+    });
+  }
+
+  private injectHUD() {
+    // Remove any existing HUD (hot reload safety)
+    document.getElementById('hud-root')?.remove();
+
+    const root = document.createElement('div');
+    root.id = 'hud-root';
+    root.innerHTML = `
+      <style>
+        #hud-root { position: fixed; inset: 0; pointer-events: none; z-index: 1000; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; direction: rtl; }
+        #hud-root * { pointer-events: auto; }
+        #hud-root [data-no-click] { pointer-events: none; }
+        @keyframes toastSlideIn { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes toastSlideOut { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(-20px); } }
+        @keyframes hudPulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }
+        .hud-tab:hover { background: rgba(255,255,255,0.1) !important; }
+        .hud-tab:active { background: rgba(255,255,255,0.2) !important; }
+      </style>
+
+      <!-- Status bar (top) -->
+      <div id="hud-status" style="
+        position: fixed; top: 0; left: 0; right: 0;
+        padding: 8px 16px; padding-top: max(8px, env(safe-area-inset-top));
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 13px; color: #fff;
+      ">
+        <div>
+          <span style="font-weight:700;font-size:15px">Claude Farm</span>
+          <span id="hud-conn" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:#f44"></span>
+        </div>
+        <div style="opacity:0.7;font-size:11px;display:flex;align-items:center;gap:6px">
+          <span id="hud-tick">Tick: 0</span>
+          <span>&middot;</span>
+          <span id="hud-period">יום</span>
+          <span>&middot;</span>
+          <span id="hud-sound-btn" style="cursor:pointer;font-size:16px">🔇</span>
+        </div>
+      </div>
+
+      <!-- Food mode overlay -->
+      <div id="hud-food-mode" style="
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(212,175,55,0.9); color: #000; padding: 14px 28px;
+        border-radius: 24px; font-size: 16px; font-weight: 700;
+        display: none; animation: hudPulse 1.5s ease-in-out infinite;
+      " data-no-click>🥙 לחץ על המפה להזריק אוכל!</div>
+
+      <!-- Toast container -->
+      <div id="hud-toast-container" style="
+        position: fixed; top: 55px; left: 50%; transform: translateX(-50%);
+        display: flex; flex-direction: column; gap: 8px;
+        align-items: center;
+      " data-no-click></div>
+
+      <!-- Return panel -->
+      <div id="hud-return-panel" style="
+        position: fixed; top: 55px; left: 16px; right: 16px;
+        background: rgba(20,30,50,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px; padding: 20px; z-index: 1010;
+        display: none; color: #fff; max-height: 40vh; overflow-y: auto;
+        border: 1px solid rgba(100,150,255,0.3); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      ">
+        <div style="font-size:18px;font-weight:700;margin-bottom:12px">👋 ברוך שובך, אלון!</div>
+        <div id="hud-return-content" style="font-size:14px;line-height:1.8"></div>
+        <button id="hud-return-dismiss" style="display:block;width:100%;margin-top:16px;padding:14px;border-radius:12px;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">סגור</button>
+      </div>
+
+      <!-- Content panel (opens above toolbar) -->
+      <div id="hud-panel" style="
+        position: fixed; bottom: 72px; left: 8px; right: 8px; max-height: 50vh;
+        overflow-y: auto; background: rgba(20,30,20,0.95);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px; padding: 16px;
+        display: none; border: 1px solid rgba(255,255,255,0.12);
+        color: #fff;
+      "></div>
+
+      <!-- Bottom toolbar -->
+      <div id="hud-toolbar" style="
+        position: fixed; bottom: 0; left: 0; right: 0;
+        padding: 6px 8px; padding-bottom: max(8px, env(safe-area-inset-bottom));
+        background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        display: flex; gap: 4px;
+      ">
+        <div class="hud-tab" data-panel="agents" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none;transition:background 0.2s">
+          <div style="font-size:20px">👨‍🌾</div>חקלאים
+        </div>
+        <div class="hud-tab" data-panel="food" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none;transition:background 0.2s">
+          <div style="font-size:20px">🥙</div>אוכל
+        </div>
+        <div class="hud-tab" data-panel="requests" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none;position:relative;transition:background 0.2s">
+          <div style="font-size:20px">📋</div>בקשות
+          <span id="hud-req-badge" style="position:absolute;top:4px;right:4px;background:#f44;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px"></span>
+        </div>
+        <div class="hud-tab" data-panel="events" style="flex:1;text-align:center;padding:10px 4px;border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;color:#fff;user-select:none;transition:background 0.2s">
+          <div style="font-size:20px">📜</div>אירועים
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
   }
 
   private setupEventListeners() {
-    // Tab clicks
     document.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       const tab = target.closest('.hud-tab') as HTMLElement | null;
@@ -141,11 +158,9 @@ export class HUDScene extends Phaser.Scene {
         const panel = tab.dataset.panel;
         if (!panel) return;
 
-        // Toggle panel
         const panelEl = document.getElementById('hud-panel');
         if (!panelEl) return;
 
-        // Deactivate all tabs
         document.querySelectorAll('.hud-tab').forEach(t => {
           (t as HTMLElement).style.background = 'transparent';
         });
@@ -186,7 +201,6 @@ export class HUDScene extends Phaser.Scene {
         const id = card.dataset.id;
         if (id) {
           (this.scene.get('VillageScene') as VillageScene).focusOnAgent(id);
-          // Close panel
           this.activePanel = null;
           const panelEl = document.getElementById('hud-panel');
           if (panelEl) panelEl.style.display = 'none';
@@ -207,7 +221,6 @@ export class HUDScene extends Phaser.Scene {
           villageScene.foodMode = true;
           const el = document.getElementById('hud-food-mode');
           if (el) el.style.display = 'block';
-          // Close panel
           this.activePanel = null;
           const panelEl = document.getElementById('hud-panel');
           if (panelEl) panelEl.style.display = 'none';
@@ -220,13 +233,18 @@ export class HUDScene extends Phaser.Scene {
       // Quick drop
       if (target.closest('#hud-quick-drop')) {
         (this.scene.get('VillageScene') as VillageScene).quickDropFood();
-        // Close panel
         this.activePanel = null;
         const panelEl = document.getElementById('hud-panel');
         if (panelEl) panelEl.style.display = 'none';
         document.querySelectorAll('.hud-tab').forEach(t => {
           (t as HTMLElement).style.background = 'transparent';
         });
+      }
+
+      // Return panel dismiss
+      if (target.id === 'hud-return-dismiss') {
+        const panel = document.getElementById('hud-return-panel');
+        if (panel) panel.style.display = 'none';
       }
     });
   }
@@ -238,7 +256,6 @@ export class HUDScene extends Phaser.Scene {
     if (now - this.lastUIUpdate < 1000) return;
     this.lastUIUpdate = now;
 
-    // Status bar
     const conn = document.getElementById('hud-conn');
     if (conn) {
       const isConnected = this.registry.get('connected');
@@ -252,7 +269,6 @@ export class HUDScene extends Phaser.Scene {
     const period = document.getElementById('hud-period');
     if (period) period.textContent = PERIOD_LABELS[this.snapshot.dayPeriod] || this.snapshot.dayPeriod;
 
-    // Badge
     const badge = document.getElementById('hud-req-badge');
     const reqCount = (this.snapshot.pendingRequests || []).length;
     if (badge) {
@@ -264,7 +280,6 @@ export class HUDScene extends Phaser.Scene {
       }
     }
 
-    // Update active panel content
     if (this.activePanel) {
       this.renderPanel();
     }
@@ -291,9 +306,9 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private renderAgentsPanel(agents: AgentSnapshot[]): string {
-    if (!agents.length) return '<div style="text-align:center;padding:24px;opacity:0.4;font-size:13px">אין סוכנים</div>';
+    if (!agents.length) return '<div style="text-align:center;padding:24px;opacity:0.4;font-size:13px">אין חקלאים</div>';
 
-    return '<div style="font-size:16px;font-weight:700;margin-bottom:12px">🦀 סוכנים</div>' +
+    return '<div style="font-size:16px;font-weight:700;margin-bottom:12px">👨‍🌾 חקלאים</div>' +
       agents.map(a => {
         const needs = a.needs || {};
         const needBars = Object.entries(needs).map(([k, v]) => {
@@ -329,8 +344,8 @@ export class HUDScene extends Phaser.Scene {
 
   private renderFoodPanel(): string {
     const foodButtons = FOODS.map((f, i) =>
-      `<div class="hud-food-btn" data-idx="${i}" style="background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 4px;text-align:center;cursor:pointer;font-size:24px;user-select:none;transition:all 0.2s" onmouseover="this.style.borderColor='#D4AF37';this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(255,255,255,0.08)'">
-        ${f.emoji}
+      `<div class="hud-food-btn" data-idx="${i}" style="background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 4px;text-align:center;cursor:pointer;user-select:none;transition:all 0.2s" onmouseover="this.style.borderColor='#D4AF37';this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.background='rgba(255,255,255,0.08)'">
+        <img src="/icons/${f.icon}.png" alt="${f.name}" style="width:40px;height:40px;object-fit:contain" onerror="this.outerHTML='<span style=font-size:24px>${f.emoji}</span>'">
         <div style="font-size:10px;margin-top:4px;opacity:0.7">${f.name}</div>
       </div>`
     ).join('');
@@ -371,6 +386,19 @@ export class HUDScene extends Phaser.Scene {
         '<div style="text-align:center;padding:24px;opacity:0.4;font-size:13px">אין אירועים עדיין</div>';
     }
 
+    const eventIcons: Record<string, string> = {
+      conversation: '💬', eat: '🍽', build_request: '🔨',
+      build_complete: '🏗', request: '📋', mood_change: '🎭',
+      food_drop: '🥙', auto_manage: '📋', callout: '📢',
+    };
+    const eventColors: Record<string, string> = {
+      conversation: 'rgba(100,200,200,0.15)', eat: 'rgba(212,175,55,0.15)',
+      build_request: 'rgba(200,150,50,0.15)', build_complete: 'rgba(50,200,100,0.15)',
+      request: 'rgba(150,150,200,0.15)', mood_change: 'rgba(200,100,200,0.15)',
+      food_drop: 'rgba(212,175,55,0.15)', auto_manage: 'rgba(100,150,255,0.15)',
+      callout: 'rgba(255,100,100,0.15)',
+    };
+
     return '<div style="font-size:16px;font-weight:700;margin-bottom:12px">📜 אירועים</div>' +
       events.slice().reverse().map(e => {
         let time = '';
@@ -378,20 +406,66 @@ export class HUDScene extends Phaser.Scene {
           const d = new Date(typeof e.timestamp === 'number' && e.timestamp < 1e12 ? e.timestamp * 1000 : e.timestamp);
           time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
         }
-        return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;opacity:0.8">
-          <span style="font-size:10px;opacity:0.5">${time}</span> ${e.message || ''}
+        const icon = eventIcons[e.type] || '📌';
+        const bg = eventColors[e.type] || 'rgba(255,255,255,0.05)';
+
+        return `<div style="display:flex;gap:8px;padding:8px;border-radius:8px;margin-bottom:4px;background:${bg};align-items:center">
+          <span style="font-size:16px;flex-shrink:0">${icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px">${e.message || ''}</div>
+            <div style="font-size:10px;opacity:0.4;margin-top:2px">${time}</div>
+          </div>
         </div>`;
       }).join('');
   }
 
+  private toastCount = 0;
+
   private showToast(msg: string) {
-    const el = document.getElementById('hud-toast');
-    if (!el) return;
-    el.textContent = msg;
-    el.style.display = 'block';
-    el.style.animation = 'none';
-    el.offsetHeight; // Force reflow
-    el.style.animation = 'toastIn 0.3s ease-out';
-    setTimeout(() => { el.style.display = 'none'; }, 2000);
+    const container = document.getElementById('hud-toast-container');
+    if (!container) return;
+
+    if (container.children.length >= 3) {
+      container.removeChild(container.firstChild!);
+    }
+
+    const id = 'toast-' + (++this.toastCount);
+    const toast = document.createElement('div');
+    toast.id = id;
+    toast.textContent = msg;
+    toast.style.cssText = `
+      background: rgba(45,138,78,0.95); color: #fff; padding: 10px 20px;
+      border-radius: 20px; font-size: 13px; font-weight: 600;
+      animation: toastSlideIn 0.3s ease-out; white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: auto;
+    `;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'toastSlideOut 0.3s ease-in forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  private showReturnPanel(summary: string) {
+    const panel = document.getElementById('hud-return-panel');
+    const content = document.getElementById('hud-return-content');
+    if (!panel || !content) return;
+
+    content.innerHTML = summary.split('\n').map(line =>
+      `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:14px">${line}</div>`
+    ).join('');
+
+    panel.style.display = 'block';
+
+    const timer = setTimeout(() => { panel.style.display = 'none'; }, 15000);
+
+    const dismissBtn = document.getElementById('hud-return-dismiss');
+    if (dismissBtn) {
+      dismissBtn.onclick = () => {
+        clearTimeout(timer);
+        panel.style.display = 'none';
+      };
+    }
   }
 }

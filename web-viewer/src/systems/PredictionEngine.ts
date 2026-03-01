@@ -5,6 +5,7 @@ export interface PredictedPosition {
   y: number;
   vx: number;
   vy: number;
+  currentSpeed: number;
 }
 
 export class PredictionEngine {
@@ -22,6 +23,7 @@ export class PredictionEngine {
           y: a.position.y,
           vx: newVx,
           vy: newVy,
+          currentSpeed: Math.hypot(newVx, newVy),
         });
       } else {
         // Adaptive LERP: bigger error → faster correction
@@ -48,8 +50,21 @@ export class PredictionEngine {
 
   update(dt: number) {
     for (const pred of this.predictions.values()) {
-      pred.x += pred.vx * dt;
-      pred.y += pred.vy * dt;
+      // Smooth acceleration/deceleration
+      const targetSpeed = Math.hypot(pred.vx, pred.vy);
+      if (pred.currentSpeed < targetSpeed) {
+        pred.currentSpeed = Math.min(targetSpeed, pred.currentSpeed + 400 * dt);
+      } else {
+        pred.currentSpeed = Math.max(0, pred.currentSpeed - 600 * dt);
+      }
+
+      // Apply smoothed speed in direction of velocity
+      if (targetSpeed > 0.1) {
+        const nx = pred.vx / targetSpeed;
+        const ny = pred.vy / targetSpeed;
+        pred.x += nx * pred.currentSpeed * dt;
+        pred.y += ny * pred.currentSpeed * dt;
+      }
     }
   }
 

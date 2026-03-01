@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a2e1a">
+<title>Claude Village v3.0</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #1a2e1a; color: #fff; }
+#canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* Status bar */
+#status { position: fixed; top: 0; left: 0; right: 0; padding: 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; font-size: 13px; z-index: 100; }
+#status .title { font-weight: 700; font-size: 15px; }
+#status .info { opacity: 0.7; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.conn { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; }
+.conn.on { background: #4f4; box-shadow: 0 0 6px #4f4; }
+.conn.off { background: #f44; }
+
+/* Bottom toolbar */
+#toolbar { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom)); background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; gap: 4px; z-index: 100; }
+.tab { flex: 1; text-align: center; padding: 10px 4px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; user-select: none; }
+.tab:hover, .tab.active { background: rgba(255,255,255,0.15); }
+.tab .icon { font-size: 20px; display: block; margin-bottom: 2px; }
+.badge { position: absolute; top: 4px; right: 4px; background: #f44; color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+
+/* Panels */
+.panel { position: fixed; bottom: 68px; left: 8px; right: 8px; max-height: 50vh; overflow-y: auto; background: rgba(20,30,20,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 16px; padding: 16px; z-index: 99; display: none; border: 1px solid rgba(255,255,255,0.1); }
+.panel.show { display: block; animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Agent card */
+.agent-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+.agent-card:hover, .agent-card:active { background: rgba(255,255,255,0.08); }
+.agent-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.agent-info { flex: 1; min-width: 0; }
+.agent-name { font-weight: 600; font-size: 14px; }
+.agent-role { font-size: 11px; opacity: 0.6; }
+.agent-needs { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.need-row { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.need-icon { width: 14px; text-align: center; flex-shrink: 0; }
+.need-label { width: 42px; opacity: 0.6; flex-shrink: 0; }
+.need-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.need-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+.need-pct { width: 28px; text-align: left; opacity: 0.5; font-size: 9px; flex-shrink: 0; }
+
+/* Food grid */
+.food-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.food-btn { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 4px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 24px; user-select: none; }
+.food-btn:hover, .food-btn:active, .food-btn.selected { background: rgba(255,255,255,0.2); border-color: #D4AF37; transform: scale(1.05); }
+.food-name { font-size: 10px; margin-top: 4px; opacity: 0.7; }
+.food-hint { text-align: center; font-size: 12px; opacity: 0.5; margin-top: 12px; }
+
+/* Quick drop button */
+.quick-drop { display: block; width: 100%; margin-top: 12px; padding: 14px; border-radius: 12px; border: 2px dashed rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); color: #D4AF37; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; }
+.quick-drop:active { background: rgba(212,175,55,0.3); }
+
+/* Request card */
+.req-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.req-from { font-weight: 600; font-size: 13px; }
+.req-msg { font-size: 12px; opacity: 0.8; margin: 6px 0; }
+.req-actions { display: flex; gap: 8px; }
+.req-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+.req-approve { background: #2d8a4e; color: #fff; }
+.req-deny { background: #8a2d2d; color: #fff; }
+.req-btn:active { transform: scale(0.95); }
+
+/* Event log */
+.event { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; opacity: 0.8; }
+.event:last-child { border: none; }
+.event-time { font-size: 10px; opacity: 0.5; }
+
+.panel-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.empty-msg { text-align: center; padding: 24px; opacity: 0.4; font-size: 13px; }
+
+/* Food drop mode overlay */
+#food-mode { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(212,175,55,0.9); color: #000; padding: 14px 28px; border-radius: 24px; font-size: 16px; font-weight: 700; z-index: 101; display: none; pointer-events: none; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }
+
+/* Toast notification */
+#toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(45,138,78,0.95); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 200; display: none; pointer-events: none; }
+#toast.show { display: block; animation: toastIn 0.3s ease-out; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* Debug overlay */
+#debug { position: fixed; bottom: 72px; left: 8px; font-size: 10px; font-family: monospace; color: rgba(255,255,255,0.4); z-index: 50; pointer-events: none; }
+.village-icon { display: inline-block; vertical-align: middle; object-fit: contain; }
+.tab .village-icon { width: 20px; height: 20px; display: block; margin: 0 auto 2px; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="status">
+    <div>
+        <span class="title">Claude Village v3.0</span>
+        <span class="conn" id="conn"></span>
+    </div>
+    <div class="info">
+        <span id="tick-info">Tick: 0</span>
+        <span>&middot;</span>
+        <span id="period-info">day</span>
+        <span>&middot;</span>
+        <span id="sound-btn" style="cursor:pointer;"><img src="/icons/sound-off.png" class="village-icon" style="width:16px;height:16px" onerror="this.outerHTML='&#x1F507;'"></span>
+    </div>
+</div>
+
+<div id="food-mode"><img src="/icons/doner.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F959;'"> לחץ על המפה להזריק אוכל!</div>
+<div id="toast"></div>
+<div id="debug"></div>
+
+<div id="panel-agents" class="panel">
+    <div class="panel-title"><img src="/icons/crab.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F980;'"> סוכנים</div>
+    <div id="agents-list"></div>
+</div>
+
+<div id="panel-food" class="panel">
+    <div class="panel-title"><img src="/icons/doner.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F959;'"> אוכל טורקי</div>
+    <div class="food-grid" id="food-grid"></div>
+    <div class="food-hint">בחר אוכל ולחץ על המפה, או:</div>
+    <button class="quick-drop" id="quick-drop-btn"><img src="/icons/dice.png" class="village-icon" style="width:16px;height:16px" onerror="this.outerHTML='&#x1F3B2;'"> זרוק אוכל אקראי למרכז</button>
+</div>
+
+<div id="panel-requests" class="panel">
+    <div class="panel-title"><img src="/icons/clipboard.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F4CB;'"> בקשות</div>
+    <div id="requests-list"></div>
+</div>
+
+<div id="panel-events" class="panel">
+    <div class="panel-title"><img src="/icons/scroll.png" class="village-icon" style="width:20px;height:20px" onerror="this.outerHTML='&#x1F4DC;'"> אירועים</div>
+    <div id="events-list"></div>
+</div>
+
+<div id="toolbar">
+    <div class="tab" data-panel="agents"><img src="/icons/crab.png" class="village-icon" onerror="this.outerHTML='&#x1F980;'">סוכנים</div>
+    <div class="tab" data-panel="food"><img src="/icons/doner.png" class="village-icon" onerror="this.outerHTML='&#x1F959;'">אוכל</div>
+    <div class="tab" data-panel="requests"><img src="/icons/clipboard.png" class="village-icon" onerror="this.outerHTML='&#x1F4CB;'">בקשות<span class="badge" id="req-badge" style="display:none">0</span></div>
+    <div class="tab" data-panel="events"><img src="/icons/scroll.png" class="village-icon" onerror="this.outerHTML='&#x1F4DC;'">אירועים</div>
+</div>
+
+<script>
+// ============================================================
+// CLAUDE VILLAGE v3.0 — Full Canvas Viewer
+// Server-side TTS hash, performance caching, auto-management
+// ============================================================
+
+// ========== CONSTANTS ==========
+const POLL_INTERVAL = 500;
+const LERP_CORRECTION = 0.3;  // base — overridden by adaptiveLerp()
+const WORLD_SIZE = 600;
+
+// Turkish foods
+const FOODS = [
+    {emoji:"\u{1F959}", icon:"doner", name:"\u05D3\u05D5\u05E0\u05E8"},
+    {emoji:"\u{1F356}", icon:"iskender", name:"\u05D0\u05D9\u05E1\u05E7\u05E0\u05D3\u05E8"},
+    {emoji:"\u{1F95F}", icon:"manti", name:"\u05DE\u05E0\u05D8\u05D9"},
+    {emoji:"\u{1FAD3}", icon:"lahmacun", name:"\u05DC\u05D7\u05DE\u05D2\u05F3\u05D5\u05DF"},
+    {emoji:"\u{1F362}", icon:"shish-kebab", name:"\u05E9\u05D9\u05E9 \u05E7\u05D1\u05D1"},
+    {emoji:"\u{1F9C6}", icon:"kofta", name:"\u05DB\u05D5\u05E4\u05EA\u05D4"},
+    {emoji:"\u{1FAD5}", icon:"pide", name:"\u05E4\u05D9\u05D3\u05D4"},
+    {emoji:"\u{1F35A}", icon:"pilaf", name:"\u05E4\u05D9\u05DC\u05D0\u05E3"},
+    {emoji:"\u{1F36C}", icon:"baklava", name:"\u05D1\u05D0\u05E7\u05DC\u05D5\u05D5\u05D4"},
+    {emoji:"\u{1FAD6}", icon:"chai", name:"\u05E6\u05F3\u05D0\u05D9"},
+    {emoji:"\u2615", icon:"turkish-coffee", name:"\u05E7\u05E4\u05D4 \u05D8\u05D5\u05E8\u05E7\u05D9"}
+];
+
+// ========== ICON SYSTEM ==========
+const ICON_BASE = '/icons/';
+const ICON_CACHE = {};
+
+const ICON_NAMES = [
+    'crab','house','compass','palm-tree','computer','megaphone',
+    'sunrise','gamepad','clipboard','scroll','dice',
+    'sound-on','sound-off','approve','deny','lightning','mobile','hammer',
+    'doner','iskender','manti','lahmacun','shish-kebab','kofta',
+    'pide','pilaf','baklava','chai','turkish-coffee',
+    'sign','bench','garden','lantern','construction','bridge',
+    'fountain','path','notice-board','computer-screen','bug',
+    'mood-happy','mood-content','mood-bored','mood-hungry',
+    'mood-social','mood-creative','mood-tired','mood-excited',
+    'state-work','state-build','state-eat','state-sleep',
+    'state-socialize','state-explore','state-request',
+    'dawn','day','sunset','evening','night',
+    'sparkle','celebration','wave',
+    'req-food','req-build','req-tool','req-vacation','req-raise','req-general',
+    'need-hunger','need-social','need-creativity','need-work','need-rest',
+];
+
+const ICON_FALLBACK = {
+    'crab':'\u{1F980}','house':'\u{1F3E0}','compass':'\u{1F9ED}','palm-tree':'\u{1F334}',
+    'computer':'\u{1F4BB}','megaphone':'\u{1F4E3}','sunrise':'\u{1F305}','gamepad':'\u{1F3AE}',
+    'clipboard':'\u{1F4CB}','scroll':'\u{1F4DC}','dice':'\u{1F3B2}',
+    'sound-on':'\u{1F50A}','sound-off':'\u{1F507}','approve':'\u2705','deny':'\u274C',
+    'lightning':'\u26A1','mobile':'\u{1F4F1}','hammer':'\u{1F528}',
+    'doner':'\u{1F959}','iskender':'\u{1F356}','manti':'\u{1F95F}','lahmacun':'\u{1FAD3}',
+    'shish-kebab':'\u{1F362}','kofta':'\u{1F9C6}','pide':'\u{1FAD5}','pilaf':'\u{1F35A}',
+    'baklava':'\u{1F36C}','chai':'\u{1FAD6}','turkish-coffee':'\u2615',
+    'sign':'\u{1FAA7}','bench':'\u{1FA91}','garden':'\u{1F338}','lantern':'\u{1F3EE}',
+    'construction':'\u{1F3D7}','bridge':'\u{1F309}','fountain':'\u26F2','path':'\u{1F6E4}',
+    'notice-board':'\u{1F4CC}','computer-screen':'\u{1F5A5}','bug':'\u{1F41B}',
+    'mood-happy':'\u{1F60A}','mood-content':'\u{1F642}','mood-bored':'\u{1F610}',
+    'mood-hungry':'\u{1F924}','mood-social':'\u{1F5E3}','mood-creative':'\u{1F3A8}',
+    'mood-tired':'\u{1F634}','mood-excited':'\u{1F929}',
+    'state-work':'\u{1F4BB}','state-build':'\u{1F528}','state-eat':'\u{1F37D}',
+    'state-sleep':'\u{1F4A4}','state-socialize':'\u{1F4AC}','state-explore':'\u{1F6B6}',
+    'state-request':'\u{1F4CB}',
+    'dawn':'\u{1F305}','day':'\u2600\uFE0F','sunset':'\u{1F307}','evening':'\u{1F306}','night':'\u{1F319}',
+    'sparkle':'\u2728','celebration':'\u{1F389}','wave':'\u{1F44B}',
+    'req-food':'\u{1F959}','req-build':'\u{1F528}','req-tool':'\u{1F527}',
+    'req-vacation':'\u{1F3D6}','req-raise':'\u{1F4B0}','req-general':'\u{1F4CB}',
+    'need-hunger':'\u{1F37D}','need-social':'\u{1F4AC}','need-creativity':'\u{1F3A8}',
+    'need-work':'\u{1F4BC}','need-rest':'\u{1F4A4}',
+};
+
+const FOOD_EMOJI_TO_ICON = {
+    '\u{1F959}':'doner','\u{1F356}':'iskender','\u{1F95F}':'manti','\u{1FAD3}':'lahmacun',
+    '\u{1F362}':'shish-kebab','\u{1F9C6}':'kofta','\u{1FAD5}':'pide','\u{1F35A}':'pilaf',
+    '\u{1F36C}':'baklava','\u{1FAD6}':'chai','\u2615':'turkish-coffee',
+};
+
+const MOOD_EMOJI_TO_ICON = {
+    '\u{1F60A}':'mood-happy','\u{1F642}':'mood-content','\u{1F610}':'mood-bored',
+    '\u{1F924}':'mood-hungry','\u{1F5E3}\uFE0F':'mood-social','\u{1F5E3}':'mood-social',
+    '\u{1F3A8}':'mood-creative','\u{1F634}':'mood-tired','\u{1F929}':'mood-excited',
+};
+
+const HOUSE_EMOJI_TO_ICON = {
+    '\u{1F9ED}':'compass','\u{1F334}':'palm-tree','\u{1F4BB}':'computer',
+    '\u{1F4E3}':'megaphone','\u{1F305}':'sunrise','\u{1F3AE}':'gamepad',
+};
+
+const STRUCT_ICON_MAP = {
+    '\u05E9\u05DC\u05D8':'sign','\u05E1\u05E4\u05E1\u05DC':'bench',
+    '\u05D2\u05DF \u05E4\u05E8\u05D7\u05D9\u05DD':'garden','\u05E4\u05E0\u05E1':'lantern',
+    '\u05D2\u05D3\u05E8':'construction','\u05D2\u05E9\u05E8':'bridge',
+    '\u05D1\u05D0\u05E8':'fountain','\u05D3\u05E8\u05DA':'path',
+    '\u05DC\u05D5\u05D7 \u05DE\u05D5\u05D3\u05E2\u05D5\u05EA':'notice-board',
+    '\u05DE\u05D1\u05E0\u05D4':'house',
+};
+
+function preloadIcons() {
+    for (const name of ICON_NAMES) {
+        const img = new Image();
+        const entry = { img, loaded: false };
+        img.onload = () => { entry.loaded = true; };
+        img.onerror = () => { entry.loaded = false; };
+        img.src = ICON_BASE + name + '.png';
+        ICON_CACHE[name] = entry;
+    }
+}
+preloadIcons();
+
+function drawIcon(name, x, y, size, fallbackEmoji) {
+    const entry = ICON_CACHE[name];
+    if (entry && entry.loaded) {
+        ctx.drawImage(entry.img, x - size/2, y - size/2, size, size);
+    } else {
+        const fe = fallbackEmoji || ICON_FALLBACK[name] || '?';
+        ctx.font = size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fe, x, y);
+        ctx.textBaseline = 'alphabetic';
+    }
+}
+
+function iconHTML(name, size, cls) {
+    const fallback = ICON_FALLBACK[name] || '';
+    const className = cls ? 'village-icon ' + cls : 'village-icon';
+    return '<img src="' + ICON_BASE + name + '.png" alt="' + name + '" class="' + className + '" ' +
+           'style="width:' + size + 'px;height:' + size + 'px;vertical-align:middle" ' +
+           'onerror="this.outerHTML=\'' + fallback + '\'">';
+}
+
+const NEED_COLORS = { hunger: "#ff6b6b", social: "#4ecdc4", creativity: "#a855f7", workDrive: "#f59e0b", rest: "#60a5fa" };
+
+const TREE_POSITIONS = [
+    [-320, 50], [310, -40], [50, 330], [-30, -310],
+    [-270, 270], [260, -260], [270, 270], [-260, -260],
+    [-380, 180], [380, 150], [150, -380], [-150, 380]
+];
+
+// ========== STATE ==========
+let snapshot = null;
+let prevSnapshot = null;
+let connected = false;
+let snapshotCount = 0;
+let lastSnapshotTime = 0;
+
+// Client-side predicted positions: id -> {x, y, vx, vy, serverX, serverY}
+const agentPredicted = {};
+
+// Local optimistic foods (not yet confirmed by server)
+let localFoods = [];
+let localFoodId = 0;
+
+// Particles
+let particles = [];
+
+// Per-agent blink timers: id -> {nextBlink, blinking, blinkEnd}
+const agentBlinks = {};
+
+// Camera
+let camX = 0, camY = 0, camZoom = 0.65;
+let dragging = false, dragStartX = 0, dragStartY = 0, camStartX = 0, camStartY = 0;
+let dragDist = 0;
+let pinchStartDist = 0, pinchStartZoom = 1;
+let lastTouchPos = null;
+
+// Food dropping
+let foodMode = false;
+let selectedFood = null;
+
+// Active panel
+let activePanel = null;
+
+// Timing
+let lastFrameTime = performance.now();
+
+// Offscreen caching for static elements
+let groundCache = null;
+let groundCachePeriod = null;
+let housesCache = null;
+let housesCachePeriod = null;
+let housesCacheData = null; // serialized houses data for change detection
+let lastUIUpdate = 0;
+const UI_THROTTLE = 1000; // update panels max once per second
+
+// ========== CANVAS SETUP ==========
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ========== SOUND ENGINE (Web Audio API — Procedural Synthesis) ==========
+let audioCtx = null;
+let soundEnabled = false;
+let masterGain = null;
+let ambientGain = null;
+let sfxGain = null;
+let brookNode = null;
+let birdTimeout = null;
+let cricketTimeout = null;
+let cricketActive = false;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 1.0;
+    masterGain.connect(audioCtx.destination);
+
+    ambientGain = audioCtx.createGain();
+    ambientGain.gain.value = 1.0;
+    ambientGain.connect(masterGain);
+
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.4;
+    sfxGain.connect(masterGain);
+
+    soundEnabled = true;
+    startBrookSound();
+    scheduleBirdChirp();
+    updateCrickets();
+}
+
+// --- Ambient Village Music (MP3 loop) ---
+let ambientAudio = null;
+
+function startBrookSound() {
+    if (brookNode) return;
+
+    // Play real ambient music file in a loop
+    ambientAudio = new Audio('village-ambient.mp3');
+    ambientAudio.loop = true;
+    ambientAudio.volume = 0.35; // Gentle background level
+    ambientAudio.play().catch(() => {});
+
+    // Also connect through Web Audio for master gain control
+    if (audioCtx) {
+        const source = audioCtx.createMediaElementSource(ambientAudio);
+        source.connect(ambientGain);
+        ambientAudio.volume = 1.0; // Let ambientGain control volume
+        ambientGain.gain.value = 0.35;
+        brookNode = source;
+    } else {
+        brookNode = ambientAudio; // fallback marker
+    }
+}
+
+function stopBrookSound() {
+    if (ambientAudio) {
+        ambientAudio.pause();
+        ambientAudio.currentTime = 0;
+    }
+    if (brookNode && brookNode.disconnect) {
+        try { brookNode.disconnect(); } catch(e) {}
+    }
+    brookNode = null;
+}
+
+// --- Bird Chirps (multi-note) ---
+function scheduleBirdChirp() {
+    if (!soundEnabled) return;
+    const delay = 3000 + Math.random() * 5000;
+    birdTimeout = setTimeout(() => {
+        if (!soundEnabled) return;
+        playBirdChirp();
+        // 40% chance of double chirp
+        if (Math.random() < 0.4) {
+            setTimeout(() => { if (soundEnabled) playBirdChirp(); }, 200 + Math.random() * 150);
+        }
+        scheduleBirdChirp();
+    }, delay);
+}
+
+function playBirdChirp() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    const noteCount = 2 + Math.floor(Math.random() * 4); // 2-5 notes
+    let freq = 2400 + Math.random() * 1600;
+    let t = now;
+
+    for (let i = 0; i < noteCount; i++) {
+        const noteDur = 0.04 + Math.random() * 0.04; // 40-80ms
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+
+        // Envelope: attack 5ms, decay rest
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.07, t + 0.005);
+        gain.gain.linearRampToValueAtTime(0, t + noteDur);
+
+        osc.connect(gain);
+        gain.connect(ambientGain);
+        osc.start(t);
+        osc.stop(t + noteDur + 0.01);
+
+        t += noteDur + 0.005;
+        // Random walk for next note frequency
+        freq += (Math.random() - 0.4) * 600;
+        freq = Math.max(2400, Math.min(4000, freq));
+    }
+}
+
+// --- Crickets (night only) ---
+function updateCrickets() {
+    const isNight = snapshot && snapshot.dayPeriod === 'night';
+    if (isNight && soundEnabled && !cricketActive) {
+        cricketActive = true;
+        scheduleCricketBurst();
+    } else if (!isNight && cricketActive) {
+        cricketActive = false;
+        if (cricketTimeout) clearTimeout(cricketTimeout);
+    }
+}
+
+function scheduleCricketBurst() {
+    if (!cricketActive || !soundEnabled) return;
+    const delay = 5000 + Math.random() * 10000;
+    cricketTimeout = setTimeout(() => {
+        if (!cricketActive || !soundEnabled) return;
+        playCricketBurst();
+        scheduleCricketBurst();
+    }, delay);
+}
+
+function playCricketBurst() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    const duration = 0.5 + Math.random() * 1.5;
+
+    // Cricket: 4800 Hz tone modulated by 28 Hz square wave
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 4800;
+
+    // Modulator: 28 Hz square wave controlling gain
+    const modOsc = audioCtx.createOscillator();
+    modOsc.type = 'square';
+    modOsc.frequency.value = 28;
+
+    const modGain = audioCtx.createGain();
+    modGain.gain.value = 0;
+
+    // Use the square wave to modulate amplitude
+    const shaper = audioCtx.createGain();
+    shaper.gain.value = 0.03; // Very quiet
+
+    osc.connect(shaper);
+    modOsc.connect(modGain);
+    modGain.connect(shaper.gain);
+
+    // Envelope
+    const env = audioCtx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(1, now + 0.05);
+    env.gain.setValueAtTime(1, now + duration - 0.05);
+    env.gain.linearRampToValueAtTime(0, now + duration);
+
+    shaper.connect(env);
+    env.connect(ambientGain);
+
+    modOsc.start(now);
+    osc.start(now);
+    modOsc.stop(now + duration);
+    osc.stop(now + duration);
+}
+
+// --- Sound Effects ---
+function sfxFoodDrop() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Sine sweep 600 -> 200 Hz, 150ms
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain);
+    gain.connect(sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.25);
+}
+
+function sfxSpeech() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Triangle wave 800-1200 Hz, 100ms
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800 + Math.random() * 400, now);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.connect(gain);
+    gain.connect(sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.12);
+    // 3 small sparkle particles
+    if (snapshot && snapshot.agents.length > 0) {
+        const a = snapshot.agents.find(ag => ag.currentSpeech);
+        if (a) {
+            const p = agentPredicted[a.id] || a.position;
+            for (let i = 0; i < 3; i++) {
+                spawnParticle(p.x + (Math.random()-0.5)*20, p.y + 20, (Math.random()-0.5)*30, -20 - Math.random()*30, '#fff', 2, 0.5);
+            }
+        }
+    }
+}
+
+function sfxEat() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Two quick square wave notes: 300Hz, 400Hz, 80ms each
+    const freqs = [300, 400];
+    for (let i = 0; i < 2; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freqs[i], now + i * 0.08);
+        gain.gain.setValueAtTime(0.08, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.08);
+        osc.connect(gain);
+        gain.connect(sfxGain);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.1);
+    }
+}
+
+function sfxCelebration() {
+    if (!audioCtx || !soundEnabled) return;
+    const now = audioCtx.currentTime;
+    // Ascending arpeggio 400 -> 500 -> 600 -> 800 Hz
+    const freqs = [400, 500, 600, 800];
+    for (let i = 0; i < freqs.length; i++) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freqs[i], now + i * 0.1);
+        gain.gain.setValueAtTime(0.15, now + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.15);
+        osc.connect(gain);
+        gain.connect(sfxGain);
+        osc.start(now + i * 0.1);
+        osc.stop(now + i * 0.1 + 0.2);
+    }
+}
+
+// ========== TTS (ElevenLabs) ==========
+const speechAudioCache = {};  // hash → HTMLAudioElement
+const lastSpokenHash = {};     // agentID → hash of last played speech
+let ttsEnabled = true;         // can be toggled separately
+
+function playTTS(agent) {
+    if (!soundEnabled || !ttsEnabled || !agent.currentSpeech) return;
+    // Use server-computed hash (UTF-8 FNV-1a) — fixes hash mismatch with Hebrew text
+    const hash = agent.speechHash;
+    if (!hash) { sfxSpeech(); return; }
+    if (lastSpokenHash[agent.id] === hash) return;
+    lastSpokenHash[agent.id] = hash;
+
+    const url = '/api/tts/' + hash + '.mp3';
+
+    if (speechAudioCache[hash]) {
+        const audio = speechAudioCache[hash];
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        return;
+    }
+
+    // Try fetching — may 404 if not cached on server yet
+    const audio = new Audio(url);
+    audio.volume = 0.7;
+    audio.addEventListener('canplaythrough', () => {
+        speechAudioCache[hash] = audio;
+        audio.play().catch(() => {});
+    }, { once: true });
+    audio.addEventListener('error', () => {
+        // TTS not available — play synthetic blip instead
+        sfxSpeech();
+    }, { once: true });
+    audio.load();
+}
+
+function toggleSound() {
+    const btn = document.getElementById('sound-btn');
+    if (!audioCtx) {
+        initAudio();
+        btn.innerHTML = iconHTML('sound-on', 16);
+        return;
+    }
+    soundEnabled = !soundEnabled;
+    if (soundEnabled) {
+        audioCtx.resume();
+        masterGain.gain.value = 1.0;
+        ambientGain.gain.value = 0.35;
+        if (!brookNode) startBrookSound();
+        if (ambientAudio) ambientAudio.play().catch(() => {});
+        scheduleBirdChirp();
+        updateCrickets();
+        btn.innerHTML = iconHTML('sound-on', 16);
+    } else {
+        masterGain.gain.value = 0;
+        if (ambientAudio) ambientAudio.pause();
+        stopBrookSound();
+        if (birdTimeout) clearTimeout(birdTimeout);
+        if (cricketTimeout) clearTimeout(cricketTimeout);
+        cricketActive = false;
+        btn.innerHTML = iconHTML('sound-off', 16);
+    }
+}
+
+// ========== PARTICLE SYSTEM ==========
+function spawnParticle(x, y, vx, vy, color, size, maxLife) {
+    particles.push({ x, y, vx, vy, life: maxLife, maxLife, color, size });
+}
+
+function spawnFoodParticles(x, y) {
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
+        const speed = 40 + Math.random() * 60;
+        spawnParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, '#D4AF37', 3 + Math.random() * 2, 0.6 + Math.random() * 0.3);
+    }
+}
+
+function spawnEatParticles(x, y) {
+    for (let i = 0; i < 5; i++) {
+        spawnParticle(x + (Math.random()-0.5)*10, y, (Math.random()-0.5)*40, -30 - Math.random()*40, '#ff9', 2 + Math.random() * 2, 0.5);
+    }
+}
+
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        const alpha = Math.max(0, p.life / p.maxLife);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, -p.y, p.size * alpha, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+// ========== CLIENT-SIDE PREDICTION ==========
+function onSnapshotReceived(data) {
+    prevSnapshot = snapshot;
+    snapshot = data;
+    lastSnapshotTime = Date.now();
+    snapshotCount++;
+
+    // Detect sound events by comparing to previous snapshot
+    if (prevSnapshot && soundEnabled) {
+        for (const a of snapshot.agents) {
+            const prev = prevSnapshot.agents ? prevSnapshot.agents.find(p => p.id === a.id) : null;
+            if (prev) {
+                if (a.currentSpeech && a.currentSpeech !== prev.currentSpeech) {
+                    playTTS(a);  // Try ElevenLabs TTS, falls back to sfxSpeech
+                }
+                if (a.state === 'eating' && prev.state !== 'eating') {
+                    sfxEat();
+                    const pa = agentPredicted[a.id];
+                    if (pa) spawnEatParticles(pa.x, pa.y);
+                }
+            }
+        }
+    }
+
+    // Update predicted positions: adaptive LERP + velocity smoothing
+    for (const a of snapshot.agents) {
+        const newVx = a.velocityX || 0;
+        const newVy = a.velocityY || 0;
+        if (!agentPredicted[a.id]) {
+            agentPredicted[a.id] = {
+                x: a.position.x, y: a.position.y,
+                vx: newVx, vy: newVy
+            };
+        } else {
+            const pred = agentPredicted[a.id];
+            // Adaptive LERP: bigger error → faster correction
+            const error = Math.hypot(a.position.x - pred.x, a.position.y - pred.y);
+            let rate;
+            if (error > 80) rate = 0.7;
+            else if (error > 40) rate = 0.45;
+            else if (error > 15) rate = 0.25;
+            else rate = 0.12;
+
+            // Direction change detection — snap faster if direction reversed
+            const dot = pred.vx * newVx + pred.vy * newVy;
+            if (dot < 0) rate = Math.max(rate, 0.5);
+
+            pred.x = pred.x + (a.position.x - pred.x) * rate;
+            pred.y = pred.y + (a.position.y - pred.y) * rate;
+
+            // Velocity smoothing — don't instantly change velocity
+            pred.vx = pred.vx + (newVx - pred.vx) * 0.4;
+            pred.vy = pred.vy + (newVy - pred.vy) * 0.4;
+        }
+
+        // Init blink timer if needed
+        if (!agentBlinks[a.id]) {
+            agentBlinks[a.id] = {
+                nextBlink: performance.now() + 3000 + Math.random() * 3000,
+                blinking: false,
+                blinkEnd: 0
+            };
+        }
+    }
+
+    // Remove local foods that server now knows about (sync)
+    localFoods = [];
+
+    // Update crickets based on day period
+    if (soundEnabled) updateCrickets();
+
+    updateUI();
+}
+
+function predictAgents(dt) {
+    if (!snapshot) return;
+    for (const a of snapshot.agents) {
+        const pred = agentPredicted[a.id];
+        if (!pred) continue;
+        // Move by velocity * dt
+        pred.x += pred.vx * dt;
+        pred.y += pred.vy * dt;
+    }
+}
+
+// ========== DRAWING ==========
+function draw(now) {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+    const clampedDt = Math.min(dt, 0.1); // Clamp to avoid jumps on tab switch
+
+    // Client-side prediction: advance agents
+    predictAgents(clampedDt);
+
+    // Update particles
+    updateParticles(clampedDt);
+
+    // Background based on day period
+    let bgColor = '#2a4a2a';
+    if (snapshot) {
+        switch (snapshot.dayPeriod) {
+            case 'morning': bgColor = '#3a5a3a'; break;
+            case 'day': bgColor = '#2a4a2a'; break;
+            case 'evening': bgColor = '#2a3040'; break;
+            case 'night': bgColor = '#151e25'; break;
+        }
+    }
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(W / 2 + camX, H / 2 - camY);
+    ctx.scale(camZoom, camZoom);
+
+    if (snapshot) {
+        drawGround(now);
+        drawHouses(snapshot.houses || []);
+        drawStructures(snapshot.structures || []);
+        drawAllFoods(snapshot.foods || [], now);
+        drawAgents(snapshot.agents || [], now);
+        drawParticles();
+    }
+
+    // Food mode crosshair
+    if (foodMode) {
+        ctx.strokeStyle = 'rgba(212,175,55,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.moveTo(-WORLD_SIZE, 0); ctx.lineTo(WORLD_SIZE, 0);
+        ctx.moveTo(0, -WORLD_SIZE); ctx.lineTo(0, WORLD_SIZE);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    ctx.restore();
+
+    // Connection status text if not connected
+    if (!connected && !snapshot) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('\u05DE\u05EA\u05D7\u05D1\u05E8 \u05DC\u05DB\u05E4\u05E8...', W / 2, H / 2);
+    }
+
+    // Debug overlay
+    document.getElementById('debug').textContent =
+        'snap:' + snapshotCount +
+        ' poll:' + (pollingActive ? 'on' : 'off') +
+        ' agents:' + (snapshot ? (snapshot.agents || []).length : 0) +
+        ' zoom:' + camZoom.toFixed(2);
+
+    requestAnimationFrame(draw);
+}
+
+function buildGroundCache() {
+    const size = 1200; // covers -600..600 world coords
+    const oc = new OffscreenCanvas(size, size);
+    const g = oc.getContext('2d');
+    g.translate(size / 2, size / 2);
+
+    // Grass texture
+    g.fillStyle = 'rgba(50,100,50,0.3)';
+    for (let x = -500; x < 500; x += 40) {
+        for (let y = -500; y < 500; y += 40) {
+            g.fillRect(x, -y, 2, 8);
+            g.fillRect(x + 20, -y + 15, 2, 6);
+        }
+    }
+
+    // Paths (light brown roads)
+    g.fillStyle = 'rgba(160,130,90,0.35)';
+    g.fillRect(-500, -8, 1000, 16);
+    g.fillRect(-8, -500, 16, 1000);
+    g.save();
+    g.rotate(Math.PI / 4);
+    g.fillRect(-500, -6, 1000, 12);
+    g.restore();
+    g.save();
+    g.rotate(-Math.PI / 4);
+    g.fillRect(-500, -6, 1000, 12);
+    g.restore();
+
+    // Fountain base (static parts)
+    g.beginPath();
+    g.arc(0, 0, 35, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(100,100,100,0.5)';
+    g.fill();
+    g.beginPath();
+    g.arc(0, 0, 30, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(60,140,200,0.45)';
+    g.fill();
+    g.strokeStyle = 'rgba(100,160,220,0.6)';
+    g.lineWidth = 2;
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 0, 8, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(80,80,80,0.7)';
+    g.fill();
+
+    // Trees
+    for (const [tx, ty] of TREE_POSITIONS) {
+        g.fillStyle = 'rgba(100,70,40,0.7)';
+        g.fillRect(tx - 3, -ty + 10, 6, 10);
+        g.fillStyle = 'rgba(30,70,25,0.65)';
+        g.beginPath(); g.arc(tx, -ty, 18, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(50,110,35,0.55)';
+        g.beginPath(); g.arc(tx - 4, -ty - 4, 14, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(60,130,40,0.45)';
+        g.beginPath(); g.arc(tx + 3, -ty - 2, 11, 0, Math.PI * 2); g.fill();
+    }
+
+    return oc;
+}
+
+function drawGround(now) {
+    const period = snapshot ? snapshot.dayPeriod : 'day';
+
+    // Rebuild cache only when day period changes
+    if (!groundCache || groundCachePeriod !== period) {
+        groundCache = buildGroundCache();
+        groundCachePeriod = period;
+    }
+
+    // Draw cached ground (centered)
+    ctx.drawImage(groundCache, -600, -600);
+
+    // Animated fountain sparkles (only these redraw per frame)
+    const t = now * 0.001;
+    for (let i = 0; i < 7; i++) {
+        const angle = t * 0.8 + i * Math.PI * 2 / 7;
+        const r = 12 + Math.sin(t * 2 + i * 1.3) * 6;
+        const alpha = 0.3 + Math.sin(t * 3 + i * 0.7) * 0.2;
+        ctx.fillStyle = `rgba(180,220,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * r, Math.sin(angle) * r, 1.5 + Math.sin(t + i) * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    for (let i = 0; i < 3; i++) {
+        const sy = -10 - i * 5 - Math.sin(t * 4 + i) * 3;
+        ctx.fillStyle = `rgba(150,200,255,${0.5 - i * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(Math.sin(t * 2 + i) * 2, sy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function drawHouses(houses) {
+    for (const h of houses) {
+        const x = h.position.x;
+        const y = -h.position.y;
+
+        // House shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(x - 38, y + 4, 76, 56);
+
+        // Walls
+        ctx.fillStyle = h.wallColor || '#8B7355';
+        ctx.fillRect(x - 35, y, 70, 50);
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 35, y, 70, 50);
+
+        // Roof (colored from data)
+        ctx.fillStyle = h.roofColor || '#A0522D';
+        ctx.beginPath();
+        ctx.moveTo(x - 42, y);
+        ctx.lineTo(x, y - 25);
+        ctx.lineTo(x + 42, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Door
+        ctx.fillStyle = 'rgba(100,70,40,0.8)';
+        ctx.fillRect(x - 8, y + 25, 16, 25);
+        // Door knob
+        ctx.fillStyle = 'rgba(200,180,50,0.6)';
+        ctx.beginPath();
+        ctx.arc(x + 4, y + 38, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Windows
+        const isNight = snapshot && (snapshot.dayPeriod === 'night' || snapshot.dayPeriod === 'evening');
+        ctx.fillStyle = isNight ? 'rgba(255,230,100,0.7)' : 'rgba(150,180,220,0.3)';
+        ctx.fillRect(x - 25, y + 10, 12, 12);
+        ctx.fillRect(x + 13, y + 10, 12, 12);
+        // Window cross-bars
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x - 19, y + 10); ctx.lineTo(x - 19, y + 22);
+        ctx.moveTo(x - 25, y + 16); ctx.lineTo(x - 13, y + 16);
+        ctx.moveTo(x + 19, y + 10); ctx.lineTo(x + 19, y + 22);
+        ctx.moveTo(x + 13, y + 16); ctx.lineTo(x + 25, y + 16);
+        ctx.stroke();
+
+        // House icon
+        const hIcon = h.icon || HOUSE_EMOJI_TO_ICON[h.emoji] || 'house';
+        drawIcon(hIcon, x, y - 34, 24, h.emoji || '\u{1F3E0}');
+
+        // House name label
+        ctx.font = '10px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.name || '', x, y + 64);
+    }
+}
+
+function drawStructures(structures) {
+    for (const s of structures) {
+        const x = s.position.x;
+        const y = -s.position.y;
+        const iconName = STRUCT_ICON_MAP[s.type] || 'house';
+
+        drawIcon(iconName, x, y, 26, ICON_FALLBACK[iconName]);
+
+        ctx.font = '8px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.textAlign = 'center';
+        ctx.fillText(s.type || '', x, y + 20);
+    }
+}
+
+function drawAllFoods(serverFoods, now) {
+    const t = now * 0.004;
+    const allFoods = [...serverFoods, ...localFoods];
+
+    for (const f of allFoods) {
+        const x = f.position.x;
+        const y = -f.position.y;
+
+        // Glow effect
+        if (!f.isBeingEaten) {
+            const glowSize = 16 + Math.sin(t) * 4;
+            ctx.beginPath();
+            ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+            grad.addColorStop(0, 'rgba(255,200,50,0.2)');
+            grad.addColorStop(1, 'rgba(255,200,50,0)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
+
+        const bounce = f.isBeingEaten ? 0 : Math.sin(t * 2 + x * 0.01) * 3;
+        const foodIconName = f.icon || FOOD_EMOJI_TO_ICON[f.emoji] || 'doner';
+        const foodSize = f.isBeingEaten ? 16 : 26;
+        ctx.globalAlpha = f.isBeingEaten ? 0.4 : (f._local ? 0.7 : 1);
+        drawIcon(foodIconName, x, y + bounce, foodSize, f.emoji || '\u{1F959}');
+        ctx.globalAlpha = 1;
+
+        // Name label
+        ctx.font = '8px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText(f.name || '', x, y + 24);
+    }
+}
+
+function drawAgents(agents, now) {
+    const t = now * 0.001;
+
+    for (const a of agents) {
+        const pred = agentPredicted[a.id];
+        const px = pred ? pred.x : a.position.x;
+        const py = pred ? pred.y : a.position.y;
+        const x = px;
+        const y = -py;
+        const color = a.badgeColor || '#E8734A';
+        const vx = pred ? pred.vx : 0;
+        const vy = pred ? pred.vy : 0;
+        const speed = Math.sqrt(vx * vx + vy * vy);
+        const isMoving = speed > 2;
+        const facingLeft = a.facingLeft || (vx < -1);
+
+        // Walking animation parameters
+        const walkPhase = t * 8 + (a.id ? a.id.charCodeAt(0) : 0);
+        const walkBob = isMoving ? Math.sin(walkPhase) * 2.5 : Math.sin(t * 1.5 + (a.id ? a.id.charCodeAt(0) * 0.5 : 0)) * 1;
+        const legWiggle = isMoving ? Math.sin(walkPhase) * 0.35 : 0;
+
+        // Blink logic
+        const blink = agentBlinks[a.id];
+        let eyeOpen = true;
+        if (blink) {
+            if (now >= blink.nextBlink && !blink.blinking) {
+                blink.blinking = true;
+                blink.blinkEnd = now + 120; // 120ms blink
+            }
+            if (blink.blinking && now >= blink.blinkEnd) {
+                blink.blinking = false;
+                blink.nextBlink = now + 3000 + Math.random() * 3000;
+            }
+            eyeOpen = !blink.blinking;
+        }
+
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(x, y + 18, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fill();
+
+        const bodyY = y + walkBob;
+
+        // Legs (3 per side) — draw under body
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.8;
+        for (let i = 0; i < 3; i++) {
+            const ly = bodyY - 2 + i * 5;
+            const phase = walkPhase + i * 1.2;
+            const lw = isMoving ? Math.sin(phase) * 4 : 0;
+            // Left legs
+            ctx.beginPath();
+            ctx.moveTo(x - 14, ly);
+            ctx.lineTo(x - 22 - lw, ly + 5 + Math.abs(lw) * 0.3);
+            ctx.stroke();
+            // Right legs
+            ctx.beginPath();
+            ctx.moveTo(x + 14, ly);
+            ctx.lineTo(x + 22 + lw, ly + 5 + Math.abs(lw) * 0.3);
+            ctx.stroke();
+        }
+
+        // Body (crab-like oval)
+        ctx.beginPath();
+        ctx.ellipse(x, bodyY, 15, 11, 0, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Body highlight
+        ctx.beginPath();
+        ctx.ellipse(x - 3, bodyY - 3, 8, 5, -0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fill();
+
+        // Claws
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.8;
+        ctx.lineCap = 'round';
+        // Left claw
+        ctx.save();
+        ctx.translate(x - 15, bodyY - 4);
+        ctx.rotate(legWiggle - 0.2);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-8, -7);
+        ctx.moveTo(-8, -7);
+        ctx.lineTo(-4, -3);
+        ctx.moveTo(-8, -7);
+        ctx.lineTo(-10, -1);
+        ctx.stroke();
+        ctx.restore();
+        // Right claw
+        ctx.save();
+        ctx.translate(x + 15, bodyY - 4);
+        ctx.rotate(-legWiggle + 0.2);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(8, -7);
+        ctx.moveTo(8, -7);
+        ctx.lineTo(4, -3);
+        ctx.moveTo(8, -7);
+        ctx.lineTo(10, -1);
+        ctx.stroke();
+        ctx.restore();
+        ctx.lineCap = 'butt';
+
+        // Eye stalks
+        const stalkLen = 7;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, bodyY - 8);
+        ctx.lineTo(x - 6, bodyY - 8 - stalkLen);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + 5, bodyY - 8);
+        ctx.lineTo(x + 6, bodyY - 8 - stalkLen);
+        ctx.stroke();
+
+        // Eyes
+        const eyeY = bodyY - 8 - stalkLen;
+        if (eyeOpen) {
+            // Eye whites
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(x - 6, eyeY, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 6, eyeY, 4, 0, Math.PI * 2); ctx.fill();
+            // Eye outlines
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.arc(x - 6, eyeY, 4, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x + 6, eyeY, 4, 0, Math.PI * 2); ctx.stroke();
+            // Pupils — track movement direction
+            let pupilDx = 0, pupilDy = 0;
+            if (isMoving) {
+                const dir = Math.atan2(vy, vx);
+                pupilDx = Math.cos(dir) * 1.5;
+                pupilDy = -Math.sin(dir) * 1.5; // Canvas Y is inverted
+            }
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(x - 6 + pupilDx, eyeY + pupilDy, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 6 + pupilDx, eyeY + pupilDy, 2, 0, Math.PI * 2); ctx.fill();
+            // Eye glint
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath(); ctx.arc(x - 5 + pupilDx, eyeY - 1 + pupilDy, 0.8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 7 + pupilDx, eyeY - 1 + pupilDy, 0.8, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // Closed eyes (blink) — horizontal lines
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x - 9, eyeY); ctx.lineTo(x - 3, eyeY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x + 3, eyeY); ctx.lineTo(x + 9, eyeY);
+            ctx.stroke();
+        }
+
+        // Badge on body
+        ctx.beginPath();
+        ctx.arc(x, bodyY + 1, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fill();
+        ctx.font = 'bold 7px -apple-system, sans-serif';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(a.name ? a.name.charAt(0) : '?', x, bodyY + 1.5);
+        ctx.textBaseline = 'alphabetic';
+
+        // Name label below
+        ctx.font = '9px -apple-system, sans-serif';
+        const nameText = a.name || 'unknown';
+        const nameW = ctx.measureText(nameText).width + 12;
+        roundRect(ctx, x - nameW / 2, y + 19, nameW, 16, 6);
+        ctx.fillStyle = color + 'CC';
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(nameText, x, y + 30);
+
+        // Mood icon above
+        if (a.moodEmoji) {
+            const moodIcon = a.moodIcon || MOOD_EMOJI_TO_ICON[a.moodEmoji];
+            if (moodIcon) {
+                drawIcon(moodIcon, x + 22, bodyY - 14, 16, a.moodEmoji);
+            } else {
+                ctx.font = '12px serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(a.moodEmoji, x + 22, bodyY - 10);
+            }
+        }
+
+        // State indicator icon
+        if (a.state && a.state !== 'idle') {
+            const stateIconNames = { work:'state-work', build:'state-build', eat:'state-eat', eating:'state-eat', rest:'state-sleep', socialize:'state-socialize', explore:'state-explore', request:'state-request' };
+            const sin = stateIconNames[a.state];
+            if (sin) {
+                drawIcon(sin, x - 22, bodyY - 14, 14);
+            }
+        }
+
+        // Speech bubble
+        if (a.currentSpeech) {
+            drawSpeechBubble(x, eyeY - 10, a.currentSpeech, color, now);
+        }
+    }
+}
+
+function drawSpeechBubble(x, y, text, color, now) {
+    ctx.font = '10px -apple-system, sans-serif';
+    const displayText = text.length > 35 ? text.substring(0, 35) + '...' : text;
+    const metrics = ctx.measureText(displayText);
+    const w = Math.min(metrics.width + 20, 180);
+    const h = 26;
+    const bx = x - w / 2;
+    const by = y - h - 10;
+
+    // Pulsing border
+    const pulseAlpha = 0.4 + Math.sin(now * 0.005) * 0.2;
+
+    // Bubble background
+    roundRect(ctx, bx, by, w, h, 10);
+    ctx.fillStyle = 'rgba(255,255,255,0.93)';
+    ctx.fill();
+    ctx.strokeStyle = color + Math.round(pulseAlpha * 255).toString(16).padStart(2, '0');
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, w, h, 10);
+    ctx.stroke();
+
+    // Pointer triangle
+    ctx.fillStyle = 'rgba(255,255,255,0.93)';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, by + h);
+    ctx.lineTo(x, by + h + 7);
+    ctx.lineTo(x + 5, by + h);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = '#222';
+    ctx.textAlign = 'center';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillText(displayText, x, by + h / 2 + 3.5);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// ========== TOAST ==========
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'show';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.className = ''; }, 2000);
+}
+
+// ========== CAMERA CONTROLS ==========
+
+// Mouse drag
+canvas.addEventListener('mousedown', e => {
+    dragging = true;
+    dragDist = 0;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    camStartX = camX;
+    camStartY = camY;
+});
+
+canvas.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    dragDist = Math.hypot(dx, dy);
+    camX = camStartX + dx;
+    camY = camStartY - dy;
+});
+
+canvas.addEventListener('mouseup', e => {
+    const wasDrag = dragDist > 5;
+    dragging = false;
+    if (!wasDrag && foodMode) {
+        dropFoodAt(e.clientX, e.clientY);
+    }
+});
+
+// Mouse wheel zoom
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.92 : 1.08;
+    camZoom = Math.max(0.15, Math.min(3, camZoom * delta));
+}, { passive: false });
+
+// Touch pan and pinch zoom
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const ts = Array.from(e.touches);
+    if (ts.length === 1) {
+        dragging = true;
+        dragDist = 0;
+        dragStartX = ts[0].clientX;
+        dragStartY = ts[0].clientY;
+        camStartX = camX;
+        camStartY = camY;
+        lastTouchPos = { x: ts[0].clientX, y: ts[0].clientY };
+    } else if (ts.length === 2) {
+        dragging = false;
+        pinchStartDist = Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY);
+        pinchStartZoom = camZoom;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const ts = Array.from(e.touches);
+    if (ts.length === 1 && dragging) {
+        const dx = ts[0].clientX - dragStartX;
+        const dy = ts[0].clientY - dragStartY;
+        dragDist = Math.hypot(dx, dy);
+        camX = camStartX + dx;
+        camY = camStartY - dy;
+        lastTouchPos = { x: ts[0].clientX, y: ts[0].clientY };
+    } else if (ts.length === 2) {
+        const dist = Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY);
+        camZoom = Math.max(0.15, Math.min(3, pinchStartZoom * (dist / pinchStartDist)));
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    const wasDrag = dragDist > 10;
+    dragging = false;
+    if (e.touches.length === 0 && !wasDrag && foodMode && lastTouchPos) {
+        dropFoodAt(lastTouchPos.x, lastTouchPos.y);
+    }
+    lastTouchPos = null;
+}, { passive: false });
+
+// ========== FOOD DROP (OPTIMISTIC) ==========
+function screenToWorld(sx, sy) {
+    const wx = (sx - W / 2 - camX) / camZoom;
+    const wy = -(sy - H / 2 + camY) / camZoom;
+    return { x: wx, y: wy };
+}
+
+function dropFoodAt(screenX, screenY) {
+    const world = screenToWorld(screenX, screenY);
+    const food = selectedFood || FOODS[Math.floor(Math.random() * FOODS.length)];
+
+    // 1. Add optimistic local food
+    const localFood = {
+        id: '__local_' + (localFoodId++),
+        position: { x: world.x, y: world.y },
+        emoji: food.emoji,
+        name: food.name,
+        isBeingEaten: false,
+        _local: true
+    };
+    localFoods.push(localFood);
+
+    // 2. Spawn particles at drop location
+    spawnFoodParticles(world.x, world.y);
+
+    // 3. Find nearest agent and conceptually rotate toward food
+    if (snapshot && snapshot.agents) {
+        let nearest = null, nearDist = Infinity;
+        for (const a of snapshot.agents) {
+            const pred = agentPredicted[a.id];
+            const ax = pred ? pred.x : a.position.x;
+            const ay = pred ? pred.y : a.position.y;
+            const d = Math.hypot(ax - world.x, ay - world.y);
+            if (d < nearDist) { nearDist = d; nearest = a; }
+        }
+        // The agent will naturally turn toward food on next server update
+    }
+
+    // 4. Toast + sound
+    showToast('\u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7!');
+    sfxFoodDrop();
+
+    // 5. Send to server
+    fetch('/api/food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x: world.x, y: world.y, emoji: food.emoji, name: food.name })
+    }).catch(() => {});
+
+    // Reset food mode
+    foodMode = false;
+    selectedFood = null;
+    document.getElementById('food-mode').style.display = 'none';
+    document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
+}
+
+function quickDropFood() {
+    const x = (Math.random() - 0.5) * 200;
+    const y = (Math.random() - 0.5) * 200;
+    const food = FOODS[Math.floor(Math.random() * FOODS.length)];
+
+    // Optimistic local food
+    localFoods.push({
+        id: '__local_' + (localFoodId++),
+        position: { x, y },
+        emoji: food.emoji,
+        name: food.name,
+        isBeingEaten: false,
+        _local: true
+    });
+
+    spawnFoodParticles(x, y);
+    showToast('\u05D0\u05D5\u05DB\u05DC \u05E0\u05D6\u05E8\u05E7 \u05DC\u05DE\u05E8\u05DB\u05D6 \u05D4\u05DB\u05E4\u05E8!');
+    sfxFoodDrop();
+
+    fetch('/api/food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x, y, emoji: food.emoji, name: food.name })
+    }).catch(() => {});
+}
+
+// ========== PANELS ==========
+
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const panel = tab.dataset.panel;
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+        if (activePanel === panel) {
+            activePanel = null;
+            return;
+        }
+
+        activePanel = panel;
+        tab.classList.add('active');
+        document.getElementById('panel-' + panel).classList.add('show');
+    });
+});
+
+// Build food grid
+const foodGrid = document.getElementById('food-grid');
+FOODS.forEach(f => {
+    const btn = document.createElement('div');
+    btn.className = 'food-btn';
+    btn.innerHTML = iconHTML(f.icon || 'doner', 28) + '<div class="food-name">' + f.name + '</div>';
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.food-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedFood = f;
+        foodMode = true;
+        document.getElementById('food-mode').style.display = 'block';
+        // Close panel
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        activePanel = null;
+    });
+    foodGrid.appendChild(btn);
+});
+
+// Quick drop button
+document.getElementById('quick-drop-btn').addEventListener('click', () => {
+    quickDropFood();
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    activePanel = null;
+});
+
+// Sound button
+document.getElementById('sound-btn').addEventListener('click', toggleSound);
+
+function updateAgentsPanel(agents) {
+    const list = document.getElementById('agents-list');
+    if (!agents || agents.length === 0) {
+        list.innerHTML = '<div class="empty-msg">\u05D0\u05D9\u05DF \u05E1\u05D5\u05DB\u05E0\u05D9\u05DD</div>';
+        return;
+    }
+    list.innerHTML = agents.map(a => {
+        const needs = a.needs || {};
+        const needMeta = {
+            hunger:    { icon: iconHTML('need-hunger', 14), label: '\u05E8\u05E2\u05D1',      color: NEED_COLORS.hunger },
+            social:    { icon: iconHTML('need-social', 14), label: '\u05D7\u05D1\u05E8\u05EA\u05D9',   color: NEED_COLORS.social },
+            creativity:{ icon: iconHTML('need-creativity', 14), label: '\u05D9\u05E6\u05D9\u05E8\u05EA\u05D9', color: NEED_COLORS.creativity },
+            workDrive: { icon: iconHTML('need-work', 14), label: '\u05E2\u05D1\u05D5\u05D3\u05D4',    color: NEED_COLORS.workDrive },
+            rest:      { icon: iconHTML('need-rest', 14), label: '\u05DE\u05E0\u05D5\u05D7\u05D4',    color: NEED_COLORS.rest }
+        };
+        const needBars = Object.entries(needs).map(([k, v]) => {
+            const m = needMeta[k] || { icon: '\u2753', label: k, color: '#888' };
+            const pct = Math.round(v * 100);
+            return '<div class="need-row">' +
+                '<span class="need-icon">' + m.icon + '</span>' +
+                '<span class="need-label">' + m.label + '</span>' +
+                '<div class="need-bar"><div class="need-fill" style="width:' + pct + '%;background:' + m.color + '"></div></div>' +
+                '<span class="need-pct">' + pct + '%</span>' +
+                '</div>';
+        }).join('');
+        const stateLabels = {
+            idle: '\u05DE\u05DE\u05EA\u05D9\u05DF',
+            eat: '\u05D0\u05D5\u05DB\u05DC',
+            eating: '\u05D0\u05D5\u05DB\u05DC',
+            socialize: '\u05DE\u05D3\u05D1\u05E8',
+            work: '\u05E2\u05D5\u05D1\u05D3',
+            build: '\u05D1\u05D5\u05E0\u05D4',
+            rest: '\u05E0\u05D7',
+            explore: '\u05DE\u05D8\u05D9\u05D9\u05DC',
+            request: '\u05DE\u05D1\u05E7\u05E9'
+        };
+        const goalText = stateLabels[a.state] || a.currentGoal || a.state || '';
+        const speechText = a.currentSpeech ? '<div style="font-size:10px;opacity:0.7;margin-top:3px;font-style:italic">\u201C' + (a.currentSpeech.length > 40 ? a.currentSpeech.substring(0,40) + '...' : a.currentSpeech) + '\u201D</div>' : '';
+        return '<div class="agent-card" onclick="focusAgent(\'' + a.id + '\')">' +
+            '<div class="agent-dot" style="background:' + (a.badgeColor || '#E8734A') + '">' + (a.name ? a.name.charAt(0) : '?') + '</div>' +
+            '<div class="agent-info">' +
+            '<div class="agent-name">' + (a.name || '') + ' ' + (a.moodEmoji || '') + '</div>' +
+            '<div class="agent-role">' + (a.role || '') + ' \u00B7 ' + goalText + '</div>' +
+            speechText +
+            '<div class="agent-needs">' + needBars + '</div>' +
+            '</div></div>';
+    }).join('');
+}
+
+// Make focusAgent global
+window.focusAgent = function(id) {
+    if (!snapshot) return;
+    const agent = snapshot.agents.find(a => a.id === id);
+    if (agent) {
+        const pred = agentPredicted[id];
+        const px = pred ? pred.x : agent.position.x;
+        const py = pred ? pred.y : agent.position.y;
+        camX = -px * camZoom;
+        camY = py * camZoom;
+        if (camZoom < 1) camZoom = 1.2;
+    }
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    activePanel = null;
+};
+
+function updateRequestsPanel(requests) {
+    const list = document.getElementById('requests-list');
+    const badge = document.getElementById('req-badge');
+
+    if (!requests || requests.length === 0) {
+        list.innerHTML = '<div class="empty-msg">\u05D0\u05D9\u05DF \u05D1\u05E7\u05E9\u05D5\u05EA \u05DE\u05DE\u05EA\u05D9\u05E0\u05D5\u05EA ' + iconHTML('celebration', 16) + '</div>';
+        badge.style.display = 'none';
+        return;
+    }
+
+    badge.style.display = 'flex';
+    badge.textContent = requests.length;
+
+    const typeIcons = { food:'req-food', buildPermission:'req-build', tool:'req-tool', vacation:'req-vacation', raise:'req-raise', general:'req-general' };
+
+    list.innerHTML = requests.map(r => {
+        const ti = typeIcons[r.type] || 'req-general';
+        return '<div class="req-card">' +
+            '<div class="req-from">' + (r.fromName || '') + ' \u00B7 ' + iconHTML(ti, 16) + '</div>' +
+            '<div class="req-msg">' + (r.message || '') + '</div>' +
+            '<div class="req-actions">' +
+            '<button class="req-btn req-approve" onclick="approveReq(\'' + r.id + '\')">' + iconHTML('approve', 14) + ' \u05D0\u05D9\u05E9\u05D5\u05E8</button>' +
+            '<button class="req-btn req-deny" onclick="denyReq(\'' + r.id + '\')">' + iconHTML('deny', 14) + ' \u05D3\u05D7\u05D9\u05D9\u05D4</button>' +
+            '</div></div>';
+    }).join('');
+}
+
+window.approveReq = function(id) {
+    fetch('/api/requests/' + id + '/approve', { method: 'POST' }).catch(() => {});
+    showToast('\u05D1\u05E7\u05E9\u05D4 \u05D0\u05D5\u05E9\u05E8\u05D4!');
+    sfxCelebration();
+};
+
+window.denyReq = function(id) {
+    fetch('/api/requests/' + id + '/deny', { method: 'POST' }).catch(() => {});
+    showToast('\u05D1\u05E7\u05E9\u05D4 \u05E0\u05D3\u05D7\u05EA\u05D4');
+};
+
+function updateEventsPanel(events) {
+    const list = document.getElementById('events-list');
+    if (!events || events.length === 0) {
+        list.innerHTML = '<div class="empty-msg">\u05D0\u05D9\u05DF \u05D0\u05D9\u05E8\u05D5\u05E2\u05D9\u05DD \u05E2\u05D3\u05D9\u05D9\u05DF</div>';
+        return;
+    }
+    list.innerHTML = events.slice().reverse().map(e => {
+        let time = '';
+        if (e.timestamp) {
+            const d = new Date(typeof e.timestamp === 'number' && e.timestamp < 1e12 ? e.timestamp * 1000 : e.timestamp);
+            time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        }
+        return '<div class="event"><span class="event-time">' + time + '</span> ' + (e.message || '') + '</div>';
+    }).join('');
+}
+
+function updateUI() {
+    if (!snapshot) return;
+
+    // Throttle UI panel updates to max once per second
+    const now = Date.now();
+    if (now - lastUIUpdate < UI_THROTTLE) return;
+    lastUIUpdate = now;
+
+    const periodLabels = {
+        morning: iconHTML('dawn', 14) + ' \u05D1\u05D5\u05E7\u05E8',
+        day: iconHTML('day', 14) + ' \u05D9\u05D5\u05DD',
+        evening: iconHTML('evening', 14) + ' \u05E2\u05E8\u05D1',
+        night: iconHTML('night', 14) + ' \u05DC\u05D9\u05DC\u05D4'
+    };
+
+    document.getElementById('tick-info').textContent = 'Tick: ' + (snapshot.tick || 0);
+    document.getElementById('period-info').innerHTML = periodLabels[snapshot.dayPeriod] || (snapshot.dayPeriod || 'day');
+
+    updateAgentsPanel(snapshot.agents || []);
+    updateRequestsPanel(snapshot.pendingRequests || []);
+    updateEventsPanel(snapshot.recentEvents || []);
+}
+
+// ========== HTTP POLLING (Primary) ==========
+let pollingActive = false;
+let pollingInterval = null;
+
+function startPolling() {
+    if (pollingActive) return;
+    pollingActive = true;
+    connected = true;
+    document.getElementById('conn').className = 'conn on';
+
+    async function poll() {
+        try {
+            const resp = await fetch('/api/snapshot');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            if (!data.agents) return;
+            connected = true;
+            document.getElementById('conn').className = 'conn on';
+            onSnapshotReceived(data);
+        } catch (e) {
+            connected = false;
+            document.getElementById('conn').className = 'conn off';
+        }
+    }
+
+    // Poll immediately, then every POLL_INTERVAL
+    poll();
+    pollingInterval = setInterval(poll, POLL_INTERVAL);
+}
+
+// ========== WEBSOCKET (Secondary — try to connect but don't depend on it) ==========
+let ws = null;
+let wsPingInterval = null;
+
+function connectWS() {
+    try {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(proto + '//' + location.host + '/ws');
+
+        ws.onopen = () => {
+            // WS connected — keep it alive with pings
+            if (wsPingInterval) clearInterval(wsPingInterval);
+            wsPingInterval = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'ping' }));
+                }
+            }, 5000);
+        };
+
+        ws.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.action) return; // control frame
+                if (!data.agents) return;
+                onSnapshotReceived(data);
+            } catch (err) {}
+        };
+
+        ws.onclose = () => {
+            if (wsPingInterval) clearInterval(wsPingInterval);
+            // Try to reconnect after delay
+            setTimeout(connectWS, 5000);
+        };
+
+        ws.onerror = () => {
+            try { ws.close(); } catch(e) {}
+        };
+    } catch (e) {
+        // WebSocket not available — polling handles everything
+    }
+}
+
+// ========== PRESENCE & RETURN SUMMARY ==========
+function sendPresence() {
+    fetch('/api/presence', { method: 'POST' }).catch(() => {});
+}
+
+function sendConnect() {
+    const lastTick = parseInt(localStorage.getItem('cv_lastTick') || '0');
+    fetch('/api/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lastTick })
+    }).then(r => r.json()).then(data => {
+        if (data.summary) {
+            showToast(data.summary);
+        }
+    }).catch(() => {});
+}
+
+// Save lastTick periodically
+setInterval(() => {
+    if (snapshot) localStorage.setItem('cv_lastTick', String(snapshot.tick));
+}, 5000);
+
+// ========== INIT ==========
+// Start polling immediately (primary transport)
+startPolling();
+
+// Also try WebSocket as secondary (won't work on Railway, but try anyway)
+connectWS();
+
+// Presence heartbeat every 10 seconds
+sendConnect();
+setInterval(sendPresence, 10000);
+
+// Start render loop
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
