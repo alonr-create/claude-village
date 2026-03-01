@@ -8,3 +8,8 @@ ClaudeVillage/
 test_eyal.mp3
 ClaudeVillage-mac.zip
 VillageServer/public/icons/
+web-viewer/node_modules/
+web-viewer/dist/
+web-viewer/public/assets/
+VillageServer/public/assets/
+screenshot_*.png

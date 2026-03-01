@@ -1,4 +1,12 @@
-# Stage 1: Build
+# Stage 0: Build web viewer (Phaser.js)
+FROM node:20-slim AS web-builder
+WORKDIR /app/web-viewer
+COPY web-viewer/package.json web-viewer/package-lock.json ./
+RUN npm ci
+COPY web-viewer/ ./
+RUN npm run build
+
+# Stage 1: Build Swift server
 FROM swift:6.0-jammy AS builder
 
 WORKDIR /app
@@ -9,6 +17,10 @@ COPY Package.swift Package.resolved ./
 # Copy source directories needed for server build
 COPY VillageSimulation/ VillageSimulation/
 COPY VillageServer/ VillageServer/
+
+# Copy web-built files into public/ (overwrite index.html, add assets/)
+COPY --from=web-builder /app/VillageServer/public/index.html VillageServer/public/index.html
+COPY --from=web-builder /app/VillageServer/public/assets/ VillageServer/public/assets/
 
 # Resolve dependencies
 RUN swift package resolve
@@ -24,8 +36,8 @@ WORKDIR /app
 # Copy built binary
 COPY --from=builder /app/.build/release/VillageServer /app/VillageServer
 
-# Copy public directory for web viewer
-COPY VillageServer/public/ /app/public/
+# Copy public directory for web viewer (includes icons, audio, and Vite build)
+COPY --from=builder /app/VillageServer/public/ /app/public/
 
 # Create data directory
 RUN mkdir -p /data

@@ -223,6 +223,28 @@ final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler, @unchec
             }
             serveStaticFile(context: context, directory: "public/icons", filename: filename, contentType: "image/png")
 
+        case (.GET, let p) where p.hasPrefix("/assets/"):
+            // Serve Vite-built assets (JS, CSS, etc.)
+            let filename = String(p.dropFirst("/assets/".count))
+            guard !filename.contains("..") else {
+                respond404(context: context)
+                return
+            }
+            let ext = filename.components(separatedBy: ".").last ?? ""
+            let contentTypes: [String: String] = [
+                "js": "application/javascript",
+                "css": "text/css",
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "json": "application/json",
+                "mp3": "audio/mpeg",
+                "woff2": "font/woff2",
+                "svg": "image/svg+xml",
+                "wasm": "application/wasm",
+            ]
+            let ct = contentTypes[ext] ?? "application/octet-stream"
+            serveStaticFile(context: context, directory: "public/assets", filename: filename, contentType: ct)
+
         default:
             respond404(context: context)
         }
